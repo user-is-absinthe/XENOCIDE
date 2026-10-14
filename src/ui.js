@@ -42,12 +42,14 @@ X.UI = {
     );
   },
   show(html, screen) {
+    this.hideWeaponTooltip();
     document.body.classList.remove("playing");
     this.screen = screen || this.screen;
     this.overlay.innerHTML = '<section class="panel">' + html + "</section>";
     this.hudEl.style.display = "none";
   },
   hide() {
+    this.hideWeaponTooltip();
     document.body.classList.add("playing");
     this.overlay.innerHTML = "";
     this.hudEl.style.display = "block";
@@ -60,6 +62,46 @@ X.UI = {
     t.classList.add("visible");
     clearTimeout(this.toastTimer);
     this.toastTimer = setTimeout(() => t.classList.remove("visible"), ms);
+  },
+  hideWeaponTooltip() {
+    document.getElementById("weapon-tooltip").hidden = true;
+    if (this.tooltipCard) this.tooltipCard.removeAttribute("aria-describedby");
+    this.tooltipCard = null;
+  },
+  weaponTooltip(card, x, y) {
+    if (this.screen !== "shop") return;
+    const w = X.weapons[Number(card.dataset.weapon)],
+      tip = document.getElementById("weapon-tooltip");
+    if (!w) return;
+    if (this.tooltipCard !== card) {
+      this.hideWeaponTooltip();
+      this.tooltipCard = card;
+      tip.innerHTML =
+        "<h3>" +
+        w.name +
+        "</h3><p>" +
+        w.desc +
+        '</p><p class="tip-strength"><b>Сильные стороны</b><br>' +
+        w.strengths +
+        '</p><p class="tip-weakness"><b>Слабые стороны</b><br>' +
+        w.weaknesses +
+        "</p>";
+      card.setAttribute("aria-describedby", "weapon-tooltip");
+    }
+    tip.hidden = false;
+    const rect = card.getBoundingClientRect(),
+      width = tip.offsetWidth,
+      height = tip.offsetHeight;
+    let left = (x ?? rect.right) + 16,
+      top = (y ?? rect.top) + 16;
+    if (left + width > window.innerWidth - 8)
+      left = (x ?? rect.left) - width - 16;
+    if (top + height > window.innerHeight - 8)
+      top = (y ?? rect.bottom) - height - 16;
+    tip.style.left =
+      Math.max(8, Math.min(window.innerWidth - width - 8, left)) + "px";
+    tip.style.top =
+      Math.max(8, Math.min(window.innerHeight - height - 8, top)) + "px";
   },
   menu() {
     X.Debug.leave();
@@ -217,7 +259,9 @@ X.UI = {
           cost = Math.round((400 + w.price * 0.3) * Math.pow(1.8, mod));
         if (locked && !own) return "";
         return (
-          '<article class="card"><div class="tag">' +
+          '<article class="card weapon-card" data-weapon="' +
+          i +
+          '" tabindex="0"><div class="tag">' +
           (own ? "НА ВООРУЖЕНИИ" : "СЕКТОР " + gate) +
           "</div><h3>" +
           w.name +
@@ -539,13 +583,10 @@ X.UI = {
           ? " · передатчик " +
             Math.ceil(g.coreHp / 5) +
             "% · " +
-            this.time(
-              Math.max(
-                0,
-                g.level.waves * g.level.interval * X.profile.settings.pace -
-                  g.defendTime,
-              ),
-            )
+            (done
+              ? "отражайте волны"
+              : "активируйте " +
+                X.profile.settings.keys.interact.replace("Key", ""))
           : g.level.mode === "timed"
             ? " · до аварии " +
               this.time(
@@ -812,6 +853,44 @@ X.UI = {
     );
   },
 };
+document.addEventListener("pointerover", (e) => {
+  const card = e.target.closest("[data-weapon]");
+  if (card) X.UI.weaponTooltip(card, e.clientX, e.clientY);
+});
+document.addEventListener("pointermove", (e) => {
+  const card = e.target.closest("[data-weapon]");
+  if (card) X.UI.weaponTooltip(card, e.clientX, e.clientY);
+});
+document.addEventListener("pointerout", (e) => {
+  const card = e.target.closest("[data-weapon]");
+  if (card && !card.contains(e.relatedTarget)) X.UI.hideWeaponTooltip();
+});
+document.addEventListener("focusin", (e) => {
+  const card = e.target.closest("[data-weapon]");
+  if (card) X.UI.weaponTooltip(card);
+});
+document.addEventListener("focusout", (e) => {
+  if (X.UI.tooltipCard && !X.UI.tooltipCard.contains(e.relatedTarget))
+    X.UI.hideWeaponTooltip();
+});
+document.addEventListener(
+  "scroll",
+  () => {
+    const card = X.UI.tooltipCard;
+    if (!card) return;
+    const rect = card.getBoundingClientRect(),
+      panel = card.closest(".panel").getBoundingClientRect();
+    if (
+      rect.bottom > panel.top &&
+      rect.top < panel.bottom &&
+      (card.matches(":hover") || card.contains(document.activeElement))
+    )
+      X.UI.weaponTooltip(card);
+    else X.UI.hideWeaponTooltip();
+  },
+  true,
+);
+window.addEventListener("resize", () => X.UI.hideWeaponTooltip());
 X.game = new X.Game();
 X.Render.init();
 X.UI.menu();
@@ -870,6 +949,17 @@ document.getElementById("import").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 window.addEventListener("keydown", (e) => {
+  if (
+    e.code === "Escape" &&
+    X.UI.screen === "shop" &&
+    !document.getElementById("weapon-tooltip").hidden
+  ) {
+    X.UI.hideWeaponTooltip();
+    e.preventDefault();
+    return;
+  }
+  if (e.code === "Tab" && X.game.state !== "play") return;
+
   if (e.target.id === "cheat-code" && e.code === "Enter") {
     e.preventDefault();
     X.UI.action("runCheat");

@@ -149,9 +149,7 @@ X.Game = class {
       !this.spawnQueue.length &&
       !this.activeEnemies() &&
       this.objectives.every((o) => o.done) &&
-      (this.level.mode !== "defend" ||
-        this.defendTime >=
-          this.level.waves * this.level.interval * X.profile.settings.pace)
+      (this.level.mode !== "defend" || this.coreHp > 0)
     );
   }
   newWave() {
@@ -260,7 +258,10 @@ X.Game = class {
     if (this.mouse.left || this.mouse.right)
       this.spin = Math.min(1, this.spin + dt);
     this.waveTimer -= dt;
-    if (this.wave < this.level.waves && this.waveTimer <= 0) this.newWave();
+    const waveCleared =
+      this.wave > 0 && !this.spawnQueue.length && !this.activeEnemies();
+    if (this.wave < this.level.waves && (this.waveTimer <= 0 || waveCleared))
+      this.newWave();
     this.spawnTimer -= dt;
     if (
       this.spawnQueue.length &&

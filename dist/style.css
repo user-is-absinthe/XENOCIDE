@@ -168,6 +168,36 @@ input[type="range"] {
   width: 100%;
   font-size: 13px;
 }
+.weapon-card:focus-visible {
+  outline: 1px solid #6de2ce;
+  outline-offset: 2px;
+}
+#weapon-tooltip {
+  position: fixed;
+  z-index: 30;
+  pointer-events: none;
+  width: min(340px, calc(100vw - 16px));
+  padding: 16px;
+  background: #0b1923fa;
+  border: 1px solid #6a959b;
+  box-shadow: 0 8px 32px #000b;
+  font-size: 13px;
+  line-height: 1.4;
+}
+#weapon-tooltip h3 {
+  font-size: 16px;
+  margin: 0 0 10px;
+}
+#weapon-tooltip p {
+  font-size: 13px;
+  margin: 8px 0 0;
+}
+#weapon-tooltip .tip-strength {
+  color: #9bd5b1;
+}
+#weapon-tooltip .tip-weakness {
+  color: #efb08d;
+}
 .tag {
   font-size: 11px;
   letter-spacing: 0.15em;

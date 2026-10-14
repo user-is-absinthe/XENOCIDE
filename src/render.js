@@ -9,6 +9,95 @@ X.Render = {
     this.resize();
     window.addEventListener("resize", () => this.resize());
     this.sprites = X.enemies.map((d) => this.sprite(d));
+    this.burnSprites = [0, 1, 2].map((quality) =>
+      Array.from({ length: 12 }, (_, frame) => this.burnSprite(frame, quality)),
+    );
+  },
+  burnSprite(frame, quality) {
+    const c = document.createElement("canvas");
+    c.width = 96;
+    c.height = 112;
+    const g = c.getContext("2d"),
+      time = (frame / 12) * Math.PI * 2;
+    const glow = g.createRadialGradient(48, 78, 4, 48, 78, 40);
+    glow.addColorStop(0, "#ffc15650");
+    glow.addColorStop(1, "#e45c1900");
+    g.fillStyle = glow;
+    g.fillRect(8, 38, 80, 74);
+    if (quality > 0)
+      for (let i = 0; i < 3; i++) {
+        const rise = (frame * 3 + i * 19) % 60;
+        g.globalAlpha = 0.08 * (1 - rise / 70);
+        g.fillStyle = "#c3b5a8";
+        g.beginPath();
+        g.ellipse(
+          48 + Math.sin(time + i) * 12,
+          65 - rise,
+          7 + rise * 0.12,
+          6 + rise * 0.1,
+          0,
+          0,
+          7,
+        );
+        g.fill();
+      }
+    g.globalAlpha = 1;
+    const count = [3, 5, 6][quality];
+    for (let i = 0; i < count; i++) {
+      const x = 25 + (i * 46) / (count - 1),
+        y = 82 + Math.sin(time + i) * 4,
+        w = 9 + Math.sin(time + i * 2) * 2,
+        h = 28 + (Math.sin(time + i * 1.7) + 1) * 10,
+        sway = Math.sin(time + i * 2.1) * 7;
+      g.fillStyle = "#e65d25dc";
+      g.beginPath();
+      g.moveTo(x - w, y);
+      g.lineTo(x - w, y - h * 0.3);
+      g.lineTo(x - w * 0.4 + sway, y - h * 0.55);
+      g.lineTo(x + sway, y - h);
+      g.lineTo(x + w * 0.3, y - h * 0.52);
+      g.lineTo(x + w, y - h * 0.25);
+      g.lineTo(x + w, y);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#ffb33ce8";
+      g.beginPath();
+      g.moveTo(x - w * 0.5, y);
+      g.lineTo(x - w * 0.5, y - h * 0.25);
+      g.lineTo(x + sway * 0.5, y - h * 0.7);
+      g.lineTo(x + w * 0.5, y - h * 0.2);
+      g.lineTo(x + w * 0.5, y);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#fff1a3";
+      g.beginPath();
+      g.moveTo(x - 3, y);
+      g.lineTo(x + sway * 0.2, y - h * 0.3);
+      g.lineTo(x + 3, y);
+      g.fill();
+    }
+    for (let i = 0; i < [2, 4, 6][quality]; i++) {
+      const rise = (frame * 4 + i * 11) % 58;
+      g.fillStyle = rise < 35 ? "#ffe290" : "#e99447";
+      g.globalAlpha = 1 - rise / 70;
+      g.fillRect(25 + i * 8 + Math.sin(time + i) * 5, 70 - rise, 2, 3);
+    }
+    return c;
+  },
+  drawBurn(g, e, time) {
+    const frames = this.burnSprites[X.profile.settings.quality],
+      frame = Math.floor(time * 12 + e.phase * 2) % frames.length,
+      scale = (e.r * 2 + 18) / 64;
+    g.save();
+    g.globalAlpha = Math.min(1, e.burn / 0.35);
+    g.drawImage(
+      frames[frame],
+      e.x - 48 * scale,
+      e.y - 76 * scale,
+      96 * scale,
+      112 * scale,
+    );
+    g.restore();
   },
   resize() {
     let d = Math.min(2, window.devicePixelRatio || 1);
@@ -445,11 +534,8 @@ X.Render = {
           size,
           size,
         );
-        if (e.burn > 0) {
-          g.fillStyle = "#ff8f4d99";
-          g.fillRect(-8, -8, 16, 16);
-        }
         g.restore();
+        if (e.burn > 0) this.drawBurn(g, e, game.time);
         if (e.elite || d.boss) {
           g.fillStyle = "#1a1015";
           g.fillRect(e.x - 23, e.y - e.r - 15, 46, 4);
