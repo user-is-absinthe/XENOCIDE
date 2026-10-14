@@ -49,6 +49,7 @@ with sync_playwright() as p:
     }''')
     battle = page.evaluate((ROOT / 'tools' / 'battle_checks.js').read_text(encoding='utf-8'))
     campaign = page.evaluate((ROOT / 'tools' / 'campaign_checks.js').read_text(encoding='utf-8'))
+    endless = page.evaluate((ROOT / 'tools' / 'endless_checks.js').read_text(encoding='utf-8'))
     economy = page.evaluate('''() => {
       const assert=(v,m)=>{if(!v)throw Error(m);},old=JSON.stringify(X.profile);
       X.profile=X.Save.defaults();X.profile.credits=100000;X.profile.unlocked=20;
@@ -74,7 +75,7 @@ with sync_playwright() as p:
     assert page.evaluate('X.profile.settings.keys.up') == 'KeyI'
     assert not errors, errors
     assert not any(x.startswith(('http:', 'https:')) for x in requests), requests
-    print(json.dumps({'PASS':result,'battle':battle,'campaign':campaign,'economy':economy,'errors':errors,'network':0},ensure_ascii=False))
+    print(json.dumps({'PASS':result,'battle':battle,'campaign':campaign,'endless':endless,'economy':economy,'errors':errors,'network':0},ensure_ascii=False))
     browser.close()
     # Отдельный профиль только для теста. Закрывается весь процесс браузера.
     profile = ROOT / '.venv' / 'edge-test-profile'
