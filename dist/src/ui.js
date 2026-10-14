@@ -194,6 +194,18 @@ X.UI = {
       this.toast("Магазин доступен между миссиями");
       return;
     }
+    // Покупка пересоздаёт карточки, но должна оставлять игрока на прежнем месте.
+    const oldPanel =
+      this.screen === "shop" ? this.overlay.querySelector(".panel") : null;
+    const view = oldPanel
+      ? {
+          top: oldPanel.scrollTop,
+          left: oldPanel.scrollLeft,
+          focus: oldPanel.contains(document.activeElement)
+            ? document.activeElement.dataset.act
+            : null,
+        }
+      : null;
     const p = X.profile,
       B = (a, t, d) => this.button(a, t, false, d);
     const weapons = X.weapons
@@ -288,6 +300,17 @@ X.UI = {
     );
     for (const c of this.overlay.querySelectorAll("canvas[data-ammo]"))
       X.Loot.drawIcon(c.getContext("2d"), 22, 22, c.dataset.ammo, 1.2);
+    if (view) {
+      const panel = this.overlay.querySelector(".panel");
+      if (view.focus) {
+        const button = [...panel.querySelectorAll("button[data-act]")].find(
+          (b) => b.dataset.act === view.focus,
+        );
+        if (button && !button.disabled) button.focus({ preventScroll: true });
+      }
+      panel.scrollTop = view.top;
+      panel.scrollLeft = view.left;
+    }
   },
   pause() {
     this.show(

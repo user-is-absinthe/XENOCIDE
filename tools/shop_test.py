@@ -21,17 +21,33 @@ with sync_playwright() as p:
             print(json.dumps({'before':dimensions},ensure_ascii=False))
             browser.close();sys.exit(0)
         assert all(r['width']==44 and r['height']==44 for r in dimensions),dimensions
+        def buy_without_jump(action):
+            button=page.locator(f'[data-act="{action}"]')
+            button.scroll_into_view_if_needed()
+            scroll=page.locator('.panel').evaluate('(p)=>p.scrollTop')
+            button.click(timeout=4000)
+            page.evaluate('()=>new Promise(requestAnimationFrame)')
+            restored=page.locator('.panel').evaluate('(p)=>p.scrollTop')
+            assert abs(restored-scroll)<=1, (action,'scroll jumped',scroll,restored)
         for ammo in page.evaluate('Object.keys(X.ammo)'):
             before=page.evaluate('(ammo)=>({credits:X.profile.credits,amount:X.profile.ammo[ammo],price:X.ammo[ammo].price,pack:X.ammo[ammo].pack})',ammo)
-            page.locator(f'[data-act="buyammo:{ammo}"]').click(timeout=4000)
+            buy_without_jump(f'buyammo:{ammo}')
             after=page.evaluate('(ammo)=>({credits:X.profile.credits,amount:X.profile.ammo[ammo]})',ammo)
             assert after['credits']==before['credits']-before['price'],(ammo,before,after)
             assert after['amount']==before['amount']+before['pack'],(ammo,before,after)
+        buy_without_jump('upgrade:health')
+        buy_without_jump('buyweapon:2')
+        buy_without_jump('mod:1')
+        assert page.evaluate('X.profile.upgrades.health===1&&X.profile.owned.includes(2)&&X.profile.weaponMods.pistol===1')
+        assert page.locator('.panel').evaluate('(p)=>p.scrollTop')>0,'lower shop positions not exercised'
+        page.get_by_role('button',name='МЕНЮ',exact=True).click()
+        page.get_by_role('button',name='АРСЕНАЛ И УЛУЧШЕНИЯ',exact=True).click()
+        assert page.locator('.panel').evaluate('(p)=>p.scrollTop')==0,'new shop visit must start at top'
         assert page.locator('.panel').evaluate('(p)=>p.scrollWidth<=p.clientWidth'),'horizontal overflow'
         page.reload()
-        assert page.evaluate('X.profile.credits')==9180,'purchases not saved'
+        assert page.evaluate('X.profile.credits')==7930,'purchases not saved'
         assert not errors,errors
-        results.append({'viewport':[width,height],'dpi':dpi,'purchases':6,'icons':'44x44','saved':True})
+        results.append({'viewport':[width,height],'dpi':dpi,'purchases':9,'scrollPreserved':True,'icons':'44x44','saved':True})
         context.close()
     browser.close()
     print(json.dumps({'PASS':results},ensure_ascii=False))
