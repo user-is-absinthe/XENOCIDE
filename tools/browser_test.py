@@ -46,7 +46,8 @@ with sync_playwright() as p:
       g.checkpoint();let cp=JSON.stringify(X.profile.checkpoint);g.start(1,JSON.parse(cp));
       return {reachable,restored:g.wave,weapons:X.weapons.length,enemies:X.enemies.length};
     }''')
+    battle = page.evaluate((ROOT / 'tools' / 'battle_checks.js').read_text(encoding='utf-8'))
     assert not errors, errors
     assert not any(x.startswith(('http:', 'https:')) for x in requests), requests
-    print(json.dumps({'PASS':result,'errors':errors,'network':0},ensure_ascii=False))
+    print(json.dumps({'PASS':result,'battle':battle,'errors':errors,'network':0},ensure_ascii=False))
     browser.close()
