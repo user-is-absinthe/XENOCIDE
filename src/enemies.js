@@ -289,13 +289,12 @@ Object.assign(X.Game.prototype, {
       if (this.marks.length > 180) this.marks.shift();
     }
     let roll = this.rng.next();
-    if (roll < 0.18 * this.diff.loot || e.boss)
-      this.loot.push({
-        x: e.x,
-        y: e.y,
-        kind: roll < 0.045 * this.diff.loot ? "health" : "ammo",
-        amount: e.boss ? 4 : 1,
-      });
+    if (roll < 0.18 * this.diff.loot || e.boss) {
+      const amount = e.boss ? 4 : 1;
+      if (roll < 0.045 * this.diff.loot)
+        this.loot.push({ x: e.x, y: e.y, kind: "health", amount });
+      else this.addAmmoLoot(e.x, e.y, amount);
+    }
     if (this.loot.length > 300) this.loot.shift();
   },
 });

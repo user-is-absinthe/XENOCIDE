@@ -38,6 +38,7 @@ X.Audio = {
       filter.connect(gain);
       gain.connect(this.ambient);
       hum.start();
+      X.Music.start(c);
       this.settings();
     }
     if (this.ctx.state === "suspended") this.ctx.resume().catch(() => {});
@@ -46,8 +47,19 @@ X.Audio = {
     if (!this.ctx) return;
     const s = X.profile.settings,
       t = this.ctx.currentTime;
-    this.effects.gain.setTargetAtTime(s.mute ? 0 : s.sfx, t, 0.03);
-    this.ambient.gain.setTargetAtTime(s.mute ? 0 : s.music * 0.25, t, 0.1);
+    const setGain = (param, target) => {
+      const current = param.value;
+      param.cancelScheduledValues(t);
+      param.setValueAtTime(target === 0 ? 0 : current, t);
+      if (target !== 0) param.linearRampToValueAtTime(target, t + 0.04);
+    };
+    setGain(this.effects.gain, s.mute ? 0 : s.sfx);
+    setGain(this.ambient.gain, s.mute || !s.musicEnabled ? 0 : s.music * 0.15);
+    if (X.Music.output)
+      setGain(
+        X.Music.output.gain,
+        s.mute || !s.musicEnabled ? 0 : s.music * 0.65,
+      );
   },
   play(kind = "bullet", power = 1) {
     if (!this.ctx || X.profile.settings.mute || this.voices >= 32) return;

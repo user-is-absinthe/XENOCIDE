@@ -529,10 +529,46 @@ X.upgrades = [
   },
 ];
 X.ammo = {
-  light: { name: "Лёгкие патроны", pack: 120, price: 90 },
-  shell: { name: "Картечь", pack: 30, price: 120 },
-  heavy: { name: "Винтовочные патроны", pack: 100, price: 130 },
-  fuel: { name: "Топливо", pack: 150, price: 110 },
-  energy: { name: "Энергоячейки", pack: 60, price: 170 },
-  explosive: { name: "Взрывчатые заряды", pack: 12, price: 200 },
+  light: {
+    name: "Лёгкие патроны",
+    short: "ЛЁГКИЕ",
+    color: "#e9c183",
+    pack: 120,
+    price: 90,
+  },
+  shell: {
+    name: "Картечь",
+    short: "КАРТЕЧЬ",
+    color: "#ec8576",
+    pack: 30,
+    price: 120,
+  },
+  heavy: {
+    name: "Винтовочные патроны",
+    short: "ВИНТОВ",
+    color: "#b1ce8b",
+    pack: 100,
+    price: 130,
+  },
+  fuel: {
+    name: "Топливо",
+    short: "ТОПЛИВО",
+    color: "#f4b477",
+    pack: 150,
+    price: 110,
+  },
+  energy: {
+    name: "Энергоячейки",
+    short: "ЭНЕРГИЯ",
+    color: "#8aeee7",
+    pack: 60,
+    price: 170,
+  },
+  explosive: {
+    name: "Взрывчатые заряды",
+    short: "ЗАРЯДЫ",
+    color: "#d5b8ed",
+    pack: 12,
+    price: 200,
+  },
 };

@@ -369,6 +369,21 @@ footer {
   align-items: center;
   margin-bottom: 5px;
 }
+body.playing #game {
+  cursor: none;
+}
+input[type="text"],
+input:not([type]),
+input[type="number"] {
+  background: #14232b;
+  color: #dce9e9;
+  border: 1px solid #39535b;
+  padding: 10px;
+  max-width: 100%;
+}
+#cheat-code {
+  width: 440px;
+}
 .binding button {
   padding: 5px 12px;
   min-width: 90px;

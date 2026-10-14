@@ -18,20 +18,47 @@ Object.assign(X.Game.prototype, {
   },
   beginReload() {
     const w = X.weapons[this.weapon];
+    if (w.ammo && X.Debug.enabled("noReload")) {
+      this.refillMagazine();
+      this.reload = 0;
+      return;
+    }
     if (
       w.ammo &&
       !this.reload &&
       this.mags[this.weapon] < w.mag &&
-      this.ammo[w.ammo] > 0
+      (this.ammo[w.ammo] > 0 || X.Debug.enabled("ammo"))
     ) {
       this.reload = w.reload * (1 - 0.09 * X.profile.upgrades.reload);
+      this.reloadTotal = this.reload;
       X.Audio.play("reload");
     }
+  },
+  refillMagazine() {
+    const w = X.weapons[this.weapon];
+    if (!w.ammo) return;
+    const n = X.Debug.enabled("ammo")
+      ? w.mag - this.mags[this.weapon]
+      : Math.min(w.mag - this.mags[this.weapon], this.ammo[w.ammo]);
+    this.mags[this.weapon] += n;
+    if (!X.Debug.enabled("ammo")) this.ammo[w.ammo] -= n;
+  },
+  ammoStatus() {
+    const w = X.weapons[this.weapon];
+    if (!w.ammo) return { mag: "∞", total: "∞", text: "∞" };
+    let total = this.ammo[w.ammo];
+    for (let i = 0; i < X.weapons.length; i++)
+      if (X.weapons[i].ammo === w.ammo) total += this.mags[i];
+    if (X.Debug.enabled("ammo")) total = "∞";
+    const mag = this.mags[this.weapon];
+    return { mag, total, text: mag + "/" + total };
   },
   fire(alt) {
     let w = X.weapons[this.weapon],
       p = this.player,
       cost = (alt ? 2 : 1) * (w.burst || 1);
+    if (w.ammo && X.Debug.enabled("noReload") && this.mags[this.weapon] < cost)
+      this.beginReload();
     if (w.ammo && this.mags[this.weapon] < cost) {
       if (this.mags[this.weapon] === 0) {
         this.beginReload();
@@ -309,6 +336,7 @@ Object.assign(X.Game.prototype, {
     }
   },
   hurtPlayer(damage) {
+    if (X.Debug.enabled("god")) return;
     let p = this.player;
     if (p.invuln > 0) return;
     let absorbed = Math.min(p.armor, damage * 0.65);

@@ -56,6 +56,7 @@ X.Game = class {
     });
     this.cool = 0;
     this.reload = 0;
+    this.reloadTotal = 0;
     this.charge = 0;
     this.spin = 0;
     this.moving = false;
@@ -114,12 +115,10 @@ X.Game = class {
       ]
     ).entries()) {
       let q = this.map.point(p);
-      if (this.map.fits(q.x, q.y, 12))
-        this.loot.push({
-          ...q,
-          kind: i % 3 === 0 ? "health" : "ammo",
-          amount: 1,
-        });
+      if (this.map.fits(q.x, q.y, 12)) {
+        if (i % 3 === 0) this.loot.push({ ...q, kind: "health", amount: 1 });
+        else this.addAmmoLoot(q.x, q.y);
+      }
     }
   }
   interact(dt) {
@@ -245,10 +244,7 @@ X.Game = class {
       this.reload -= dt;
       if (this.reload <= 0) {
         this.reload = 0;
-        let w = X.weapons[this.weapon],
-          n = Math.min(w.mag - this.mags[this.weapon], this.ammo[w.ammo]);
-        this.mags[this.weapon] += n;
-        this.ammo[w.ammo] -= n;
+        this.refillMagazine();
       }
     } else if ((this.mouse.left || this.mouse.right) && this.cool <= 0) {
       let w = X.weapons[this.weapon];
@@ -338,27 +334,29 @@ X.Game = class {
     if (p.hp <= 0) this.finish(false);
   }
   lootStep() {
-    let p = this.player;
+    const p = this.player,
+      picked = {};
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const l = this.loot[i];
-      if (Math.hypot(l.x - p.x, l.y - p.y) < 35) {
-        if (l.kind === "health")
-          p.hp = Math.min(p.maxHp, p.hp + 30 * l.amount * this.diff.loot);
-        else {
-          const keys = [
-            ...new Set(
-              X.profile.owned.map((i) => X.weapons[i].ammo).filter(Boolean),
-            ),
-          ];
-          for (const a of keys)
-            this.ammo[a] += Math.ceil(
-              X.ammo[a].pack * 0.22 * l.amount * this.diff.loot,
-            );
+      if (Math.hypot(l.x - p.x, l.y - p.y) >= 35) continue;
+      if (l.kind === "health")
+        p.hp = Math.min(p.maxHp, p.hp + 30 * l.amount * this.diff.loot);
+      else
+        for (const a of l.ammoType ? [l.ammoType] : X.Loot.types()) {
+          const n = X.Loot.quantity(a, l.amount, this.diff);
+          this.ammo[a] = Math.min(99999, this.ammo[a] + n);
+          picked[a] = (picked[a] || 0) + n;
         }
-        this.loot.splice(i, 1);
-        X.Audio.play("pickup");
-      }
+      this.loot.splice(i, 1);
+      X.Audio.play("pickup");
     }
+    if (Object.keys(picked).length)
+      X.UI.toast(
+        Object.entries(picked)
+          .map(([a, n]) => X.ammo[a].name + " +" + n)
+          .join(" · "),
+        2200,
+      );
   }
   fx(x, y, color, n, speed) {
     let limit = [100, 350, 700][X.profile.settings.quality];
@@ -394,6 +392,7 @@ X.Game = class {
     if (this.beams.length > 64) this.beams.shift();
   }
   checkpoint() {
+    if (X.Debug?.active) return;
     if (this.state !== "play") return;
     X.profile.checkpoint = this.snapshot();
     X.Save.write(X.profile);
@@ -441,7 +440,12 @@ X.Game = class {
     this.mags = [...c.mags];
     this.objectives = c.objectives.map((o) => ({ ...o }));
     this.spawnQueue = c.spawnQueue.map((e) => ({ ...e }));
-    this.loot = c.loot.map((l) => ({ ...l }));
+    this.loot = [];
+    for (const l of c.loot) {
+      if (l.kind === "ammo" && !l.ammoType)
+        this.addAmmoLoot(l.x, l.y, l.amount);
+      else this.loot.push({ ...l });
+    }
     for (const e of c.enemies) {
       let o = this.enemies.get();
       if (o)

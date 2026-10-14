@@ -376,18 +376,59 @@ X.Render = {
     }
     for (const l of game.loot)
       if (visible(l.x, l.y)) {
-        g.fillStyle = "#0007";
-        g.fillRect(l.x - 13, l.y - 7, 26, 22);
-        g.fillStyle = l.kind === "health" ? "#b7e8bd" : "#dcb972";
-        g.fillRect(l.x - 10, l.y - 10, 20, 18);
-        g.fillStyle = l.kind === "health" ? "#39846a" : "#58452a";
         if (l.kind === "health") {
-          g.fillRect(l.x - 2, l.y - 7, 4, 12);
-          g.fillRect(l.x - 6, l.y - 3, 12, 4);
-        } else
-          for (let i = 0; i < 3; i++)
-            g.fillRect(l.x - 6 + i * 5, l.y - 6, 3, 12);
+          g.fillStyle = "#071c1ddd";
+          g.fillRect(l.x - 12, l.y - 12, 24, 24);
+          g.fillStyle = "#b7e8bd";
+          g.fillRect(l.x - 2, l.y - 8, 4, 16);
+          g.fillRect(l.x - 8, l.y - 2, 16, 4);
+        } else {
+          const a = l.ammoType || X.Loot.types()[0] || "light",
+            data = X.ammo[a];
+          X.Loot.drawIcon(g, l.x, l.y, a, 0.8);
+          g.font = "bold 8px Segoe UI";
+          g.textAlign = "center";
+          g.fillStyle = "#07131ddd";
+          g.fillRect(l.x - 22, l.y + 13, 44, 11);
+          g.fillStyle = data.color;
+          g.fillText(data.short, l.x, l.y + 21);
+        }
       }
+    let hover = null,
+      hoverDistance = 60;
+    for (const l of game.loot) {
+      const distance = Math.hypot(
+        l.x - (game.mouse.x + cx),
+        l.y - (game.mouse.y + cy),
+      );
+      if (distance < hoverDistance) {
+        hover = l;
+        hoverDistance = distance;
+      }
+    }
+    if (hover) {
+      const type = hover.ammoType,
+        text =
+          hover.kind === "health"
+            ? "АПТЕЧКА"
+            : type
+              ? X.ammo[type].name +
+                " +" +
+                X.Loot.quantity(type, hover.amount, game.diff)
+              : "КОМПЛЕКТ СНАБЖЕНИЯ";
+      g.font = "bold 12px Segoe UI";
+      g.textAlign = "center";
+      const width = g.measureText(text).width + 14,
+        tipX = Math.max(
+          cx + width / 2 + 6,
+          Math.min(cx + 1152 - width / 2 - 6, game.mouse.x + cx),
+        ),
+        tipY = Math.max(cy + 20, game.mouse.y + cy - 38);
+      g.fillStyle = "#07131dee";
+      g.fillRect(tipX - width / 2, tipY - 14, width, 20);
+      g.fillStyle = type ? X.ammo[type].color : "#b7e8bd";
+      g.fillText(text, tipX, tipY);
+    }
     for (const e of game.enemies.items)
       if (e.active && visible(e.x, e.y)) {
         const d = X.enemies[e.type];
@@ -572,7 +613,7 @@ X.Render = {
       g.fillStyle = "rgba(180,33,25," + game.damageFlash * 0.3 + ")";
       g.fillRect(0, 0, 1152, 648);
     }
-    this.crosshair(g, game);
+    if (game.state === "play") this.crosshair(g, game);
     if (game.mapOpen) this.minimap(g, game);
   },
   backdrop(g) {
@@ -600,6 +641,58 @@ X.Render = {
     g.stroke();
     g.fillStyle = "#ecbd85";
     g.fillRect(x - 1, y - 1, 2, 2);
+    const reloading = game.reload > 0;
+    if (reloading) {
+      const progress = Math.max(
+        0,
+        Math.min(
+          1,
+          1 - game.reload / (game.reloadTotal || X.weapons[game.weapon].reload),
+        ),
+      );
+      g.lineWidth = 3;
+      g.strokeStyle = "#172c35ee";
+      g.beginPath();
+      g.arc(x, y, 20, 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = "#ffc47a";
+      g.beginPath();
+      g.arc(x, y, 20, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress);
+      g.stroke();
+      g.lineWidth = 2;
+      g.strokeStyle = "#fff1cf";
+      g.beginPath();
+      g.arc(x, y, 24, game.time * 6, game.time * 6 + 0.65);
+      g.stroke();
+    }
+    const label = game.ammoStatus().text;
+    g.font = "bold 13px Bahnschrift,Segoe UI";
+    g.textAlign = "center";
+    const tx = Math.max(70, Math.min(1082, x)),
+      ty = Math.min(reloading ? 580 : 620, y + 38);
+    g.fillStyle = "#07131de0";
+    g.fillRect(
+      tx - g.measureText(label).width / 2 - 6,
+      ty - 13,
+      g.measureText(label).width + 12,
+      19,
+    );
+    g.fillStyle = reloading ? "#ffd39a" : "#e4f7ed";
+    g.fillText(label, tx, ty);
+    if (reloading) {
+      g.globalAlpha = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(game.time * 10));
+      g.fillStyle = "#ffc47a";
+      g.strokeStyle = "#07131d";
+      g.lineWidth = 4;
+      g.strokeText("ПЕРЕЗАРЯДКА", tx, ty + 20);
+      g.fillText("ПЕРЕЗАРЯДКА", tx, ty + 20);
+      g.globalAlpha = 1;
+      g.font = "11px Segoe UI";
+      g.fillText(game.reload.toFixed(1) + " с", tx, ty + 35);
+    } else if (X.weapons[game.weapon].ammo && game.ammoStatus().total === 0) {
+      g.fillStyle = "#ff947b";
+      g.fillText("НЕТ ПАТРОНОВ · 1: КЛИНОК", tx, Math.min(642, ty + 18));
+    }
   },
   minimap(g, game) {
     const m = game.map,

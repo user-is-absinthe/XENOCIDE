@@ -42,11 +42,13 @@ X.UI = {
     );
   },
   show(html, screen) {
+    document.body.classList.remove("playing");
     this.screen = screen || this.screen;
     this.overlay.innerHTML = '<section class="panel">' + html + "</section>";
     this.hudEl.style.display = "none";
   },
   hide() {
+    document.body.classList.add("playing");
     this.overlay.innerHTML = "";
     this.hudEl.style.display = "block";
     this.screen = "game";
@@ -60,6 +62,7 @@ X.UI = {
     this.toastTimer = setTimeout(() => t.classList.remove("visible"), ms);
   },
   menu() {
+    X.Debug.leave();
     const p = X.profile;
     X.game.state = "menu";
     this.show(
@@ -78,6 +81,7 @@ X.UI = {
             : "ПРОДОЛЖИТЬ · СЕКТОР " + p.level,
         ) +
         this.button("levels", "ВЫБОР МИССИИ") +
+        this.button("debug", "ПОЛИГОН · УРОВНИ И ЧИТЫ") +
         this.button(
           "endless",
           "БЕСКОНЕЧНАЯ ЭКСПЕДИЦИЯ",
@@ -199,6 +203,7 @@ X.UI = {
           locked = p.unlocked < gate,
           mod = p.weaponMods[w.id] || 0,
           cost = Math.round((400 + w.price * 0.3) * Math.pow(1.8, mod));
+        if (locked && !own) return "";
         return (
           '<article class="card"><div class="tag">' +
           (own ? "НА ВООРУЖЕНИИ" : "СЕКТОР " + gate) +
@@ -253,7 +258,9 @@ X.UI = {
     const ammo = Object.entries(X.ammo)
       .map(
         ([k, a]) =>
-          '<article class="card"><h3>' +
+          '<article class="card"><canvas class="ammo-icon" data-ammo="' +
+          k +
+          '" width="44" height="44"></canvas><h3>' +
           a.name +
           "</h3><p>В резерве: " +
           p.ammo[k] +
@@ -279,17 +286,76 @@ X.UI = {
         "</div>",
       "shop",
     );
+    for (const c of this.overlay.querySelectorAll("canvas[data-ammo]"))
+      X.Loot.drawIcon(c.getContext("2d"), 22, 22, c.dataset.ammo, 1.2);
   },
   pause() {
     this.show(
-      '<div class="eyebrow">Протокол приостановлен</div><h2>Пауза</h2><p>Контрольная точка сохранена. Бой остановлен.</p><div class="menu">' +
+      '<div class="eyebrow">Протокол приостановлен</div><h2>Пауза</h2><p>' +
+        (X.Debug.active
+          ? "Полигон: бой остановлен. Прогресс кампании сохранён отдельно."
+          : "Контрольная точка сохранена. Бой остановлен.") +
+        '</p><div class="menu">' +
         this.button("resume", "ПРОДОЛЖИТЬ", true) +
         this.button("settings", "НАСТРОЙКИ") +
+        this.button(
+          "toggleMusic",
+          X.profile.settings.musicEnabled
+            ? "МУЗЫКА: ВКЛ · ОТКЛЮЧИТЬ"
+            : "МУЗЫКА: ВЫКЛ · ВКЛЮЧИТЬ",
+        ) +
+        this.button(
+          "toggleMute",
+          X.profile.settings.mute
+            ? "ЗВУК: ВЫКЛ · ВКЛЮЧИТЬ"
+            : "ОТКЛЮЧИТЬ ВЕСЬ ЗВУК",
+        ) +
+        this.button(
+          X.Debug.active ? "debug" : "debugEnter",
+          X.Debug.active ? "ПОЛИГОН · ЧИТЫ И УРОВНИ" : "ОТКРЫТЬ ПОЛИГОН",
+        ) +
         this.button("export", "ЭКСПОРТ ПРОГРЕССА") +
         this.button("abandon", "ПЕРЕЗАПУСТИТЬ МИССИЮ") +
         this.button("menu", "ГЛАВНОЕ МЕНЮ") +
         "</div>",
       "pause",
+    );
+  },
+  debug() {
+    if (!X.Debug.active) X.Debug.enter();
+    if (X.game.state === "play") X.game.pause();
+    const flag = (code, key, title) =>
+      this.button(
+        "cheat:" + code,
+        title + " · " + (X.Debug.flags[key] ? "ВКЛ" : "ВЫКЛ"),
+      );
+    this.show(
+      '<div class="eyebrow">Режим тестирования</div><h2>Полигон <span class="money">₡ ' +
+        X.profile.credits +
+        '</span></h2><p>Все 20 карт доступны. Читы и прогресс полигона не записываются в сохранение кампании. Повторный код переключает режим.</p><div class="row">' +
+        this.button("cheat:CREDITS", "CREDITS · +10 000 ₡") +
+        this.button("cheat:ARSENAL", "ARSENAL · ВЕСЬ АРСЕНАЛ") +
+        flag("AMMO", "ammo", "Бесконечные патроны") +
+        flag("NORELOAD", "noReload", "Без перезарядки") +
+        flag("GOD", "god", "Бессмертие") +
+        '</div><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="CREDITS / AMMO / NORELOAD / GOD / ARSENAL">' +
+        this.button("runCheat", "ВВЕСТИ") +
+        '</div><div class="level-grid">' +
+        X.levels
+          .map((l, i) =>
+            this.button(
+              "testLevel:" + (i + 1),
+              String(i + 1).padStart(2, "0") + " · " + l.name,
+            ),
+          )
+          .join("") +
+        '</div><div class="row">' +
+        (X.game.state === "pause"
+          ? this.button("resume", "ВЕРНУТЬСЯ В БОЙ", true)
+          : "") +
+        this.button("menu", "ВЫЙТИ ИЗ ПОЛИГОНА") +
+        "</div>",
+      "debug",
     );
   },
   result(win, reason) {
@@ -300,17 +366,23 @@ X.UI = {
       '<div class="eyebrow">Отчёт операции / ' +
         g.number +
         "</div><h2>" +
-        (win
-          ? final
-            ? "Источник заражения уничтожен"
-            : "Сектор зачищен"
-          : reason) +
+        (X.Debug.active
+          ? win
+            ? "Полигон: сектор зачищен"
+            : reason
+          : win
+            ? final
+              ? "Источник заражения уничтожен"
+              : "Сектор зачищен"
+            : reason) +
         "</h2><p>" +
-        (win
-          ? final
-            ? "Кампания завершена. Бесконечная экспедиция разблокирована."
-            : g.level.chapter + " · операция продолжается."
-          : "Снаряжение и кредиты до высадки сохранены. Попробуйте другой арсенал или сложность.") +
+        (X.Debug.active
+          ? "Результат не меняет сохранение кампании. Можно выбрать следующую карту для проверки."
+          : win
+            ? final
+              ? "Кампания завершена. Бесконечная экспедиция разблокирована."
+              : g.level.chapter + " · операция продолжается."
+            : "Снаряжение и кредиты до высадки сохранены. Попробуйте другой арсенал или сложность.") +
         '</p><div class="stats"><div><b>' +
         g.kills +
         "</b>уничтожено</div><div><b>" +
@@ -321,12 +393,20 @@ X.UI = {
         g.stats.shots +
         '</b>атак</div></div><div class="row">' +
         this.button(
-          win ? (final ? "endless" : "shop") : "retry",
-          win
-            ? final
-              ? "БЕСКОНЕЧНАЯ ЭКСПЕДИЦИЯ"
-              : "СНАБЖЕНИЕ И СЛЕДУЮЩАЯ МИССИЯ"
-            : "ПОВТОРИТЬ",
+          X.Debug.active
+            ? "debug"
+            : win
+              ? final
+                ? "endless"
+                : "shop"
+              : "retry",
+          X.Debug.active
+            ? "ВЫБРАТЬ ТЕСТОВЫЙ УРОВЕНЬ"
+            : win
+              ? final
+                ? "БЕСКОНЕЧНАЯ ЭКСПЕДИЦИЯ"
+                : "СНАБЖЕНИЕ И СЛЕДУЮЩАЯ МИССИЯ"
+              : "ПОВТОРИТЬ",
           true,
         ) +
         this.button("shop", "АРСЕНАЛ") +
@@ -372,13 +452,17 @@ X.UI = {
         '</div><div class="row"><label>Качество</label>' +
         this.select("quality", ["Низкое", "Среднее", "Высокое"], s.quality) +
         "</div>" +
-        ["lights", "blood", "shake", "mute"]
+        ["lights", "blood", "shake", "mute", "musicEnabled"]
           .map(
             (k, i) =>
               '<div class="row"><label>' +
-              ["Освещение", "Следы крови", "Дрожание камеры", "Отключить звук"][
-                i
-              ] +
+              [
+                "Освещение",
+                "Следы крови",
+                "Дрожание камеры",
+                "Отключить звук",
+                "Фоновая музыка",
+              ][i] +
               '</label><input type="checkbox" data-setting="' +
               k +
               '" ' +
@@ -390,7 +474,7 @@ X.UI = {
           .map(
             (k, i) =>
               '<div class="row"><label>' +
-              ["Громкость эффектов", "Громкость атмосферы"][i] +
+              ["Громкость эффектов", "Громкость музыки"][i] +
               '</label><input type="range" data-volume="' +
               k +
               '" min="0" max="1" step=".05" value="' +
@@ -466,7 +550,7 @@ X.UI = {
           extra) +
       '</span></div><div class="hint">' +
       Math.min(999, Math.round(g.fps)) +
-      " FPS · " +
+      (X.Debug.active ? " FPS · ПОЛИГОН · " : " FPS · ") +
       X.difficulties[X.profile.difficulty].name +
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
@@ -488,9 +572,13 @@ X.UI = {
       w.name +
       "</div><strong>" +
       (w.ammo
-        ? g.mags[g.weapon] + " <small>/ " + g.ammo[w.ammo] + "</small>"
+        ? g.ammoStatus().mag + " <small>/ " + g.ammoStatus().total + "</small>"
         : "∞") +
       '</strong><div class="hint">' +
+      (w.ammo
+        ? X.ammo[w.ammo].name + " · всего этого типа"
+        : "Бесконечный ресурс") +
+      '</div><div class="hint">' +
       (g.reload > 0
         ? "ПЕРЕЗАРЯДКА " + g.reload.toFixed(1)
         : g.charge > 0
@@ -514,7 +602,42 @@ X.UI = {
     let [act, v] = a.split(":"),
       p = X.profile,
       g = X.game;
+    if (
+      X.Debug.active &&
+      ["new", "begin", "import", "export", "reset", "doreset"].includes(act)
+    ) {
+      this.toast(
+        "Для управления сохранением вернитесь из полигона в главное меню",
+      );
+      return;
+    }
     switch (act) {
+      case "debugEnter":
+      case "debug":
+        X.Debug.enter();
+        this.debug();
+        break;
+      case "cheat":
+        X.Debug.code(v);
+        this.debug();
+        break;
+      case "runCheat":
+        X.Debug.code(document.getElementById("cheat-code").value);
+        this.debug();
+        break;
+      case "testLevel":
+        if (X.Debug.active && Number.isInteger(+v) && +v >= 1 && +v <= 20)
+          this.brief(+v);
+        break;
+      case "toggleMusic":
+      case "toggleMute": {
+        const key = act === "toggleMusic" ? "musicEnabled" : "mute";
+        p.settings[key] = !p.settings[key];
+        X.Audio.settings();
+        X.Save.write(p);
+        this.pause();
+        break;
+      }
       case "new":
         p.stats.kills || p.completed.length || p.checkpoint
           ? this.confirm(
@@ -724,6 +847,11 @@ document.getElementById("import").addEventListener("change", async (e) => {
   e.target.value = "";
 });
 window.addEventListener("keydown", (e) => {
+  if (e.target.id === "cheat-code" && e.code === "Enter") {
+    e.preventDefault();
+    X.UI.action("runCheat");
+    return;
+  }
   if (X.UI.pendingKey) {
     e.preventDefault();
     let k = X.UI.pendingKey;
