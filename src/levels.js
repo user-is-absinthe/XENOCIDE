@@ -1,0 +1,3 @@
+'use strict';
+X.levels=[{name:'Внешний периметр',chapter:'Нарушение карантина',theme:0,w:36,h:26,rooms:[[1,1,34,24]],blocks:[[7,5,4,6],[20,4,5,4],[16,16,5,6],[27,14,5,5]],start:[4,13],exit:[32,13],spawns:[[3,3],[32,3],[32,22],[3,22]],targets:[],mode:'clear',waves:4,interval:22,types:[0],brief:'Прорвите карантин. Уничтожьте всех существ и доберитесь до эвакуационного шлюза.'}];
+X.makeMap=function(level){const m=new X.Map(level.w,level.h);for(const r of level.rooms)m.carve(...r);for(const [x,y,w,h] of level.blocks)for(let j=y;j<y+h;j++)for(let i=x;i<x+w;i++)m.cells[j*m.w+i]=1;const p=m.point(level.start);m.bfs(p.x,p.y);return m;};
