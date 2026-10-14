@@ -3,3 +3,4 @@ node_modules/
 artifacts/
 __pycache__/
 *.log
+XENOCIDE-offline.zip

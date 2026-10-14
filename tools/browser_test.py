@@ -50,6 +50,10 @@ with sync_playwright() as p:
     battle = page.evaluate((ROOT / 'tools' / 'battle_checks.js').read_text(encoding='utf-8'))
     campaign = page.evaluate((ROOT / 'tools' / 'campaign_checks.js').read_text(encoding='utf-8'))
     endless = page.evaluate((ROOT / 'tools' / 'endless_checks.js').read_text(encoding='utf-8'))
+    navigation = page.evaluate((ROOT / 'tools' / 'navigation_checks.js').read_text(encoding='utf-8'))
+    stress = page.evaluate((ROOT / 'tools' / 'stress_checks.js').read_text(encoding='utf-8'))
+    soak = page.evaluate((ROOT / 'tools' / 'soak_checks.js').read_text(encoding='utf-8'))
+    balance = page.evaluate((ROOT / 'tools' / 'balance_checks.js').read_text(encoding='utf-8'))
     economy = page.evaluate('''() => {
       const assert=(v,m)=>{if(!v)throw Error(m);},old=JSON.stringify(X.profile);
       X.profile=X.Save.defaults();X.profile.credits=100000;X.profile.unlocked=20;
@@ -75,7 +79,9 @@ with sync_playwright() as p:
     assert page.evaluate('X.profile.settings.keys.up') == 'KeyI'
     assert not errors, errors
     assert not any(x.startswith(('http:', 'https:')) for x in requests), requests
-    print(json.dumps({'PASS':result,'battle':battle,'campaign':campaign,'endless':endless,'economy':economy,'errors':errors,'network':0},ensure_ascii=False))
+    report={'PASS':result,'battle':battle,'campaign':campaign,'endless':endless,'navigation':navigation,'stress':stress,'soak':soak,'balanceBot':balance,'economy':economy,'errors':errors,'network':0}
+    (ART / 'test-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps(report,ensure_ascii=False),flush=True)
     browser.close()
     # Отдельный профиль только для теста. Закрывается весь процесс браузера.
     profile = ROOT / '.venv' / 'edge-test-profile'

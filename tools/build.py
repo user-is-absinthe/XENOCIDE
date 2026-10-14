@@ -7,4 +7,6 @@ OUT.mkdir(exist_ok=True)
 for name in ('index.html', 'style.css'):
     shutil.copy2(ROOT / name, OUT / name)
 shutil.copytree(ROOT / 'src', OUT / 'src', dirs_exist_ok=True)
+(OUT / 'README.txt').write_text('XENOCIDE — автономная игра\n\nРаспакуйте ВСЮ папку и дважды щёлкните index.html в Microsoft Edge.\nИнтернет, сервер и дополнительные программы не нужны.\n\nWASD — движение; мышь — прицел; ЛКМ — огонь; ПКМ — усиленный режим.\nR — перезарядка; Shift — бег; Space — рывок; E — взаимодействие.\nКолесо — оружие; 1–9 — слоты; 0 — следующий слот; M — карта; Esc — пауза.\n\nСохранения привязаны к папке игры и профилю Edge. Используйте экспорт JSON\nв настройках для резервной копии или переноса. При запрете localStorage\nигра покажет предупреждение, JSON остаётся доступен.\n',encoding='utf-8-sig')
+shutil.make_archive(str(ROOT / 'XENOCIDE-offline'), 'zip', OUT)
 print('Автономная сборка:', OUT)

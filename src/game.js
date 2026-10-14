@@ -1,67 +1,545 @@
-'use strict';
-X.Game=class {
- constructor(){this.state='menu';this.keys=new Set();this.mouse={x:576,y:324,left:false,right:false};this.shots=new X.Pool(X.C.maxShots);this.particles=new X.Pool(X.C.maxParticles);this.enemies=new X.Pool(X.C.maxEnemies);this.hash=new X.Hash();this.camera={x:0,y:0};this.accumulator=0;this.last=0;this.fps=60;this.mapOpen=false;this.damageFlash=0;this.shake=0;this.clock=0;this.loot=[];this.marks=[];}
- start(number=1,checkpoint=null){this.number=number;this.level=number<=20?X.levels[number-1]:X.generate(number,X.profile.endless.seed);this.map=X.makeMap(this.level);this.rng=new X.RNG(4111+number*7919);this.diff=X.difficulties[X.profile.difficulty];const p=this.map.point(this.level.start),u=X.profile.upgrades;this.player={...p,r:14,hp:100+25*u.health,maxHp:100+25*u.health,armor:20*u.armor,maxArmor:20*u.armor,stamina:100,dash:0,invuln:1,angle:0};this.weapon=1;this.ammo={...X.profile.ammo};this.mags=X.weapons.map(w=>{if(!w.ammo)return 0;let n=Math.min(w.mag,this.ammo[w.ammo]);this.ammo[w.ammo]-=n;return n;});this.cool=0;this.reload=0;this.charge=0;this.spin=0;this.moving=false;this.time=0;this.kills=0;this.earned=0;this.wave=0;this.waveTimer=3;this.spawnQueue=[];this.spawnTimer=0;this.flowTimer=0;this.checkTimer=30;this.stats={shots:0,damage:0};this.objectives=(this.level.targets||[]).map(t=>({...this.map.point(t),kind:this.level.mode==='nests'?'nest':'terminal',done:false,hp:450+number*20,progress:0}));this.exit=this.map.point(this.level.exit);this.coreHp=500;this.defendTime=0;this.shots.clear();this.enemies.clear();this.particles.clear();this.loot=[];this.marks=[];this.mapOpen=false;this.damageFlash=0;this.shake=0;this.bossSpawned=false;this.state='play';this.keys.clear();this.mouse.left=this.mouse.right=false;this.map.bfs(p.x,p.y);this.seedLoot();if(checkpoint)this.restore(checkpoint);X.Render.prepare(this);X.UI.hide();X.UI.toast(this.level.brief,6000);}
- seedLoot(){for(const [i,p] of (this.level.resources||[[8,13],[28,10]]).entries()){let q=this.map.point(p);if(this.map.fits(q.x,q.y,12))this.loot.push({...q,kind:i%3===0?'health':'ammo',amount:1});}}
- activeEnemies(){let n=0;for(const e of this.enemies.items)if(e.active)n++;return n;}
- switchWeapon(index){if(X.profile.owned.includes(index)){this.weapon=index;this.reload=0;this.charge=0;this.spin=0;this.cool=Math.max(.1,this.cool);X.Audio.play('menu');}}
- cycle(dir){let a=X.profile.owned.slice().sort((a,b)=>a-b),i=a.indexOf(this.weapon);this.switchWeapon(a[(i+dir+a.length)%a.length]);}
- beginReload(){const w=X.weapons[this.weapon];if(w.ammo&&!this.reload&&this.mags[this.weapon]<w.mag&&this.ammo[w.ammo]>0){this.reload=w.reload*(1-.09*X.profile.upgrades.reload);X.Audio.play('reload');}}
- interact(dt){let p=this.player;for(const o of this.objectives)if(!o.done&&o.kind==='terminal'&&Math.hypot(o.x-p.x,o.y-p.y)<95){o.progress+=dt;if(o.progress>=1.5){o.done=true;this.earned+=150;X.UI.toast('Терминал активирован');X.Audio.play('pickup');this.checkpoint();}return;}if(this.ready()&&Math.hypot(this.exit.x-p.x,this.exit.y-p.y)<95)this.finish(true);}
- ready(){return this.wave>=this.level.waves&&!this.spawnQueue.length&&!this.activeEnemies()&&this.objectives.every(o=>o.done)&&(this.level.mode!=='defend'||this.defendTime>=this.level.waves*this.level.interval*X.profile.settings.pace);}
- spawn(type,x,y,elite=false){let e=this.enemies.get();if(!e)return;const d=X.enemies[type],scale=1+Math.min(this.number,40)*.027;Object.assign(e,{x,y,r:d.radius,type,hp:d.hp*this.diff.hp*scale*(elite?1.65:1),maxHp:d.hp*this.diff.hp*scale*(elite?1.65:1),elite,attack:.5+this.rng.next(),phase:this.rng.next()*6,age:0,burn:0,slow:0,stun:0,special:2+this.rng.next()*3,boss:!!d.boss});return e;}
- newWave(){this.wave++;let count=Math.round((9+Math.min(this.number,35)*1.65+this.wave*2+Math.log2(1+Math.max(0,this.number-20))*3)*this.diff.count);if(this.level.mode==='boss'&&this.wave===this.level.waves&&!this.bossSpawned){this.bossSpawned=true;this.spawnQueue.push({type:this.level.boss,elite:false});count=Math.round(count*.5);}for(let i=0;i<count;i++)this.spawnQueue.push({type:this.rng.pick(this.level.types),elite:this.rng.next()<Math.min(.38,this.diff.elite+Math.log2(1+Math.max(0,this.number-20))*.025)});this.waveTimer=this.level.interval*X.profile.settings.pace;X.UI.toast('Контакт · волна '+this.wave+' / '+this.level.waves,2200);}
- update(dt){if(this.state!=='play')return;this.clock+=dt;this.time+=dt;this.cool=Math.max(0,this.cool-dt);this.shake=Math.max(0,this.shake-dt*20);this.damageFlash=Math.max(0,this.damageFlash-dt*2);let p=this.player,k=X.profile.settings.keys;let dx=(this.keys.has(k.right)?1:0)-(this.keys.has(k.left)?1:0),dy=(this.keys.has(k.down)?1:0)-(this.keys.has(k.up)?1:0),length=Math.hypot(dx,dy);if(length){dx/=length;dy/=length;}p.angle=Math.atan2(this.mouse.y-324,this.mouse.x-576);let sprint=this.keys.has(k.sprint)&&p.stamina>0&&length;this.moving=!!length;let speed=185*(1+.06*X.profile.upgrades.speed)*(sprint?1.6:1);if(X.weapons[this.weapon].kind==='machine'&&(this.mouse.left||this.mouse.right))speed*=.65;p.stamina=Math.max(0,Math.min(100,p.stamina+(sprint?-32:23)*dt));p.dash=Math.max(0,p.dash-dt);p.invuln=Math.max(0,p.invuln-dt);if(this.keys.has(k.dash)&&p.dash<=0){let a=length?Math.atan2(dy,dx):p.angle;for(let i=0;i<12;i++)this.map.move(p,Math.cos(a)*12,Math.sin(a)*12);p.dash=2.4;p.invuln=.32;this.fx(p.x,p.y,'#78d8dc',12,100);X.Audio.play('dash');}this.map.move(p,dx*speed*dt,dy*speed*dt);this.camera.x=p.x-576;this.camera.y=p.y-324;
- if(this.keys.has(k.interact))this.interact(dt);if(this.state!=='play')return;if(this.reload>0){this.reload-=dt;if(this.reload<=0){let w=X.weapons[this.weapon],n=Math.min(w.mag-this.mags[this.weapon],this.ammo[w.ammo]);this.mags[this.weapon]+=n;this.ammo[w.ammo]-=n;}}else if((this.mouse.left||this.mouse.right)&&this.cool<=0){let w=X.weapons[this.weapon];this.charge+=dt;if(!w.charge||this.charge>=w.charge){this.fire(this.mouse.right);this.charge=0;}}else if(!this.mouse.left&&!this.mouse.right){this.charge=0;this.spin=Math.max(0,this.spin-dt*2);}if(this.mouse.left||this.mouse.right)this.spin=Math.min(1,this.spin+dt);
- this.waveTimer-=dt;if(this.wave<this.level.waves&&this.waveTimer<=0)this.newWave();this.spawnTimer-=dt;if(this.spawnQueue.length&&this.spawnTimer<=0&&this.activeEnemies()<X.C.maxEnemies-8){let s=this.rng.pick(this.level.spawns),q=this.map.point(s);if(Math.hypot(q.x-p.x,q.y-p.y)<250){let far=this.level.spawns.reduce((a,b)=>{const pa=this.map.point(a),pb=this.map.point(b);return Math.hypot(pa.x-p.x,pa.y-p.y)>Math.hypot(pb.x-p.x,pb.y-p.y)?a:b;});q=this.map.point(far);}let entry=this.spawnQueue.shift();this.spawn(entry.type,q.x,q.y,entry.elite);this.fx(q.x,q.y,'#a56ce4',4,40);this.spawnTimer=.13;}
- this.flowTimer-=dt;if(this.flowTimer<=0){this.map.bfs(p.x,p.y);this.flowTimer=.35;}this.hash.clear();for(const e of this.enemies.items)if(e.active)this.hash.insert(e);for(const e of this.enemies.items)if(e.active)this.enemyStep(e,dt);this.projectileStep(dt);this.lootStep();if(this.level.mode==='defend'&&this.objectives.every(o=>o.done))this.defendTime+=dt;for(const [x,y,w,h] of this.level.hazards||[])if(this.time%6>4&&p.x>x*48&&p.x<(x+w)*48&&p.y>y*48&&p.y<(y+h)*48)this.hurtPlayer(12*this.diff.damage);if(this.level.mode==='timed'&&this.time>this.level.limit*X.profile.settings.pace){this.finish(false,'Реактор достиг критической массы');return;}
- for(const o of this.particles.items)if(o.active){o.life-=dt;if(o.life<=0)o.active=false;else{o.x+=o.vx*dt;o.y+=o.vy*dt;o.vx*=.96;o.vy*=.96;}}this.checkTimer-=dt;if(this.checkTimer<=0){this.checkpoint();this.checkTimer=30;}if(p.hp<=0)this.finish(false);}
- enemyStep(e,dt){const p=this.player,d=X.enemies[e.type];e.age+=dt;e.phase+=dt*8;e.attack-=dt;e.special-=dt;e.slow=Math.max(0,e.slow-dt);e.stun=Math.max(0,e.stun-dt);if(e.burn>0){e.burn-=dt;this.hurtEnemy(e,20*dt,'fire');if(!e.active)return;}let tx=p.x,ty=p.y,coreTarget=false;if(this.level.mode==='defend'&&this.objectives[0]&&e.type%3===0){coreTarget=true;tx=this.objectives[0].x;ty=this.objectives[0].y;}let dist=Math.hypot(tx-e.x,ty-e.y),a=Math.atan2(ty-e.y,tx-e.x);e.angle=a;
- if(d.kind==='elite'&&e.special<=0){for(let i=0;i<5;i++)this.map.move(e,Math.cos(a)*12,Math.sin(a)*12);e.special=4;this.fx(e.x,e.y,d.color,8,80);}if(d.kind==='summon'&&e.special<=0){for(let i=0;i<3;i++){let sx=e.x+Math.cos(i*2.1)*38,sy=e.y+Math.sin(i*2.1)*38;if(this.map.fits(sx,sy,16))this.spawn(0,sx,sy);}e.special=9;this.fx(e.x,e.y,'#c18ddb',12,80);}
- if(d.boss&&e.special<=0){this.bossAttack(e);e.special=e.hp<e.maxHp*.5?3:5;}
- if(d.kind==='suicide'&&dist<65){this.explode(e.x,e.y,105,d.damage*this.diff.damage,true);e.hp=0;this.kill(e);return;}
- let ranged=['acid','gunner','elite','boss'].includes(d.kind);if(ranged&&dist<650&&dist>70&&e.attack<=0&&this.map.line(e.x,e.y,tx,ty)){let count=d.kind==='elite'?3:1;for(let i=0;i<count;i++)this.shot(e.x,e.y,a+(i-(count-1)/2)*.15,{damage:d.damage*this.diff.damage,speed:d.kind==='acid'?235:330,range:800,pierce:1,color:d.kind==='acid'?'#c0e75b':'#e38cbd',type:'enemy',radius:d.boss?9:6},true);e.attack=d.rate;}
- if(dist<p.r+e.r+6&&e.attack<=0){if(!coreTarget)this.hurtPlayer(d.damage*this.diff.damage);else{this.coreHp-=d.damage*this.diff.damage;if(this.coreHp<=0)this.finish(false,'Обороняемый передатчик уничтожен');}if(d.kind==='heavy'){for(let i=0;i<5;i++)this.map.move(p,Math.cos(a)*8,Math.sin(a)*8);this.shake=5;}e.attack=d.rate;}
- if(e.stun>0)return;let speed=d.speed*this.diff.speed*(e.elite?1.1:1)*(e.slow>0?.45:1);if(ranged&&dist<260)speed*=-.35;else if(ranged&&dist<420)speed*=.18;let vx=Math.cos(a),vy=Math.sin(a);if(!this.map.line(e.x,e.y,tx,ty)&&!coreTarget){let idx=this.map.index(e.x,e.y),best=idx,value=this.map.field[idx];for(let n of [idx-1,idx+1,idx-this.map.w,idx+this.map.w])if(this.map.field[n]>=0&&(value<0||this.map.field[n]<value)){best=n;value=this.map.field[n];}let qx=(best%this.map.w+.5)*48,qy=(Math.floor(best/this.map.w)+.5)*48;let b=Math.atan2(qy-e.y,qx-e.x);vx=Math.cos(b);vy=Math.sin(b);}
- let sx=0,sy=0;this.hash.query(e.x,e.y,e.r+30,o=>{if(o===e)return;let x=e.x-o.x,y=e.y-o.y,l=Math.hypot(x,y),r=e.r+o.r;if(l<r&&l>.01){sx+=x/l*(r-l)*3;sy+=y/l*(r-l)*3;}});this.map.move(e,(vx*speed+sx)*dt,(vy*speed+sy)*dt);}
- bossAttack(e){let d=X.enemies[e.type];this.fx(e.x,e.y,d.color,24,140);for(let i=0;i<16;i++)this.shot(e.x,e.y,i*Math.PI/8+e.age*.2,{damage:d.damage*.65*this.diff.damage,speed:210,range:850,pierce:1,color:d.color,type:'enemy',radius:7},true);if(d.id==='steel')for(let i=0;i<3;i++)this.spawn(5,e.x,e.y);if(d.id==='queen')for(let i=0;i<4;i++)this.spawn(1,e.x,e.y);if(d.id==='heart'){for(let i=0;i<4;i++){let a=e.angle+(i-1.5)*.22;this.shot(e.x,e.y,a,{damage:28,speed:380,range:950,pierce:1,color:'#f5ad56',type:'enemy',radius:10},true);}}if(d.id==='patient'){e.hp=Math.min(e.maxHp,e.hp+20);}}
- fire(alt){let w=X.weapons[this.weapon],p=this.player,cost=(alt?2:1)*(w.burst||1);if(w.ammo&&this.mags[this.weapon]<cost){if(this.mags[this.weapon]===0){this.beginReload();this.cool=.2;return;}else alt=false;cost=Math.min((alt?2:1)*(w.burst||1),this.mags[this.weapon]);if(this.mags[this.weapon]<cost){this.cool=.2;return;}}if(w.ammo)this.mags[this.weapon]-=cost;this.cool=w.rate*(alt?1.35:1)*(w.kind==='machine'?1-this.spin*.55:1);this.shake=Math.max(this.shake,w.recoil||0);this.stats.shots++;let damage=w.damage*(1+.1*X.profile.upgrades.power+.12*(X.profile.weaponMods[w.id]||0))*(alt?1.65:1),angle=p.angle;X.Audio.play(w.kind,w.damage/50);this.fx(p.x+Math.cos(angle)*27,p.y+Math.sin(angle)*27,w.color,3,60);
- if(w.kind==='blade'){this.hash.query(p.x,p.y,w.range,e=>{let dist=Math.hypot(e.x-p.x,e.y-p.y),a=Math.atan2(e.y-p.y,e.x-p.x)-angle;a=Math.atan2(Math.sin(a),Math.cos(a));if(dist<w.range+e.r&&(alt||Math.abs(a)<1.2)&&this.map.line(p.x,p.y,e.x,e.y)){this.hurtEnemy(e,damage,w.type);e.stun=.15;}});for(const o of this.objectives)if(!o.done&&o.kind==='nest'&&Math.hypot(o.x-p.x,o.y-p.y)<w.range+34&&this.map.line(p.x,p.y,o.x,o.y)){o.hp-=damage;if(o.hp<=0){o.done=true;this.earned+=200;this.explode(o.x,o.y,80,80,false);}}this.arc={angle,life:.15,alt};return;}
- if(w.kind==='tesla'){let x=p.x,y=p.y,hit=new Set();for(let n=0;n<(alt?7:5);n++){let target=null,best=n?220:w.range;this.hash.query(x,y,best,e=>{let d=Math.hypot(e.x-x,e.y-y),a=Math.atan2(e.y-y,e.x-x)-angle;if(!hit.has(e)&&d<best&&(n>0||Math.cos(a)>.65)&&this.map.line(x,y,e.x,e.y)){target=e;best=d;}});if(!target)break;this.beam(x,y,target.x,target.y,w.color);this.hurtEnemy(target,damage*Math.pow(.8,n),w.type);target.stun=.28;hit.add(target);x=target.x;y=target.y;}return;}
- let count=w.pellets||Math.min(w.burst||1,cost);if(w.kind==='flame')count=alt?5:3;for(let i=0;i<count;i++){let a=angle+(this.rng.next()-.5)*w.spread*(alt?1.4:1)*(this.moving&&w.kind!=='smg'?2:1);this.shot(p.x+Math.cos(a)*25,p.y+Math.sin(a)*25,a,{...w,range:w.kind==='grenade'?Math.max(60,Math.min(w.range,Math.hypot(this.mouse.x-576,this.mouse.y-324)-25)):w.range,damage:damage/(w.kind==='flame'?count:1),radius:w.kind==='plasma'?7:w.kind==='flame'?10:3},false);}if(w.kind==='rail'||w.kind==='rocket')this.shake=alt?7:4;}
- shot(x,y,a,w,enemy){let s=this.shots.get();if(!s)return;Object.assign(s,{x,y,oldX:x,oldY:y,vx:Math.cos(a)*w.speed,vy:Math.sin(a)*w.speed,life:w.range/w.speed,damage:w.damage,pierce:w.pierce||1,color:w.color,type:w.type,kind:w.kind||'enemy',radius:w.radius||3,enemy,hit:s.hit||new Set(),blast:w.blast||0,range:w.range,bounces:0});s.hit.clear();}
- projectileStep(dt){
-  for(const s of this.shots.items)if(s.active){
-   s.life-=dt;
-   if(s.kind==='rocket'&&!s.enemy){let target=null,best=300;this.hash.query(s.x,s.y,300,e=>{let d=Math.hypot(e.x-s.x,e.y-s.y),dot=(e.x-s.x)*s.vx+(e.y-s.y)*s.vy;if(d<best&&dot>0&&this.map.line(s.x,s.y,e.x,e.y)){target=e;best=d;}});if(target){let a=Math.atan2(target.y-s.y,target.x-s.x);s.vx+=(Math.cos(a)*450-s.vx)*dt*2;s.vy+=(Math.sin(a)*450-s.vy)*dt*2;}this.fx(s.x,s.y,'#c99369',1,25);}
-   let steps=Math.max(1,Math.ceil(Math.hypot(s.vx,s.vy)*dt/12));s.oldX=s.x;s.oldY=s.y;
-   for(let n=0;n<steps&&s.active;n++){
-    const ox=s.x,oy=s.y;s.x+=s.vx*dt/steps;s.y+=s.vy*dt/steps;
-    if(this.map.blocked(s.x,s.y)){
-     if(s.kind==='grenade'&&s.bounces<4){if(this.map.blocked(s.x,oy))s.vx*=-.7;if(this.map.blocked(ox,s.y))s.vy*=-.7;s.x=ox;s.y=oy;s.bounces++;continue;}
-     if(s.blast)this.explode(ox,oy,s.blast,s.damage,s.enemy);this.fx(ox,oy,s.color,3,45);s.active=false;break;
-    }
-    if(s.enemy){if(Math.hypot(s.x-this.player.x,s.y-this.player.y)<this.player.r+s.radius){this.hurtPlayer(s.damage);s.active=false;}}
-    else if(s.kind!=='grenade'){
-     this.hash.query(s.x,s.y,65,e=>{if(!s.active||s.hit.has(e))return;if(Math.hypot(e.x-s.x,e.y-s.y)<e.r+s.radius){s.hit.add(e);if(s.blast){this.explode(s.x,s.y,s.blast,s.damage,false);s.active=false;}else{this.hurtEnemy(e,s.damage,s.type);if(s.kind==='flame')e.burn=3;if(s.kind==='plasma')e.slow=1.3;if(--s.pierce<=0)s.active=false;}}});
-    }
-    if(!s.enemy)for(const o of this.objectives)if(!o.done&&o.kind==='nest'&&Math.hypot(o.x-s.x,o.y-s.y)<34){o.hp-=s.damage;s.active=false;if(o.hp<=0){o.done=true;this.earned+=200;this.explode(o.x,o.y,90,100,false);X.UI.toast('Гнездо уничтожено');}}
-   }
-   if(s.life<=0){if(s.blast&&s.active)this.explode(s.x,s.y,s.blast,s.damage,s.enemy);s.active=false;}
+"use strict";
+X.Game = class {
+  constructor() {
+    this.state = "menu";
+    this.keys = new Set();
+    this.mouse = { x: 576, y: 324, left: false, right: false };
+    this.shots = new X.Pool(X.C.maxShots);
+    this.particles = new X.Pool(X.C.maxParticles);
+    this.enemies = new X.Pool(X.C.maxEnemies);
+    this.hash = new X.Hash();
+    this.camera = { x: 0, y: 0 };
+    this.accumulator = 0;
+    this.last = 0;
+    this.fps = 60;
+    this.mapOpen = false;
+    this.damageFlash = 0;
+    this.shake = 0;
+    this.clock = 0;
+    this.loot = [];
+    this.marks = [];
   }
- }
- explode(x,y,r,damage,enemy){this.fx(x,y,'#ffad59',32,230);this.shake=Math.max(this.shake,10);X.Audio.play('boom',2);if(enemy){let d=Math.hypot(x-this.player.x,y-this.player.y);if(d<r&&this.map.line(x,y,this.player.x,this.player.y))this.hurtPlayer(damage*(1-d/r));}else {for(const o of this.objectives)if(o.kind==='nest'&&!o.done&&Math.hypot(o.x-x,o.y-y)<r){o.hp-=damage;if(o.hp<=0){o.done=true;this.earned+=200;}}this.hash.query(x,y,r+50,e=>{let d=Math.hypot(x-e.x,y-e.y);if(d<r+e.r&&this.map.line(x,y,e.x,e.y))this.hurtEnemy(e,damage*(1-.6*d/(r+e.r)),'explosive');});}}
- hurtPlayer(damage){let p=this.player;if(p.invuln>0)return;let absorbed=Math.min(p.armor,damage*.65);p.armor-=absorbed;p.hp-=damage-absorbed;p.invuln=.24;this.damageFlash=.5;this.stats.damage+=damage;X.Audio.play('hurt');}
- hurtEnemy(e,damage,type){if(!e.active)return;let d=X.enemies[e.type];e.hp-=damage*(d.resist?.[type]??1);if(damage>3)this.fx(e.x,e.y,d.color,2,45);if(e.hp<=0)this.kill(e);}
- kill(e){if(!e.active)return;e.active=false;this.kills++;this.earned+=Math.round(X.enemies[e.type].credit*this.diff.economy*(e.elite?1.8:1));this.fx(e.x,e.y,'#74914f',7,70);if(X.profile.settings.blood){this.marks.push({x:e.x,y:e.y,r:e.r,angle:e.angle,color:X.enemies[e.type].color});if(this.marks.length>180)this.marks.shift();}let roll=this.rng.next();if(roll<.18*this.diff.loot||e.boss)this.loot.push({x:e.x,y:e.y,kind:roll<.045*this.diff.loot?'health':'ammo',amount:e.boss?4:1});}
- lootStep(){let p=this.player;for(let i=this.loot.length-1;i>=0;i--){const l=this.loot[i];if(Math.hypot(l.x-p.x,l.y-p.y)<35){if(l.kind==='health')p.hp=Math.min(p.maxHp,p.hp+30*l.amount*this.diff.loot);else{const keys=[...new Set(X.profile.owned.map(i=>X.weapons[i].ammo).filter(Boolean))];for(const a of keys)this.ammo[a]+=Math.ceil(X.ammo[a].pack*.22*l.amount*this.diff.loot);}this.loot.splice(i,1);X.Audio.play('pickup');}}}
- fx(x,y,color,n,speed){let limit=[100,350,700][X.profile.settings.quality];for(let i=0;i<n;i++){let o=null;for(let j=0;j<limit;j++){const candidate=this.particles.items[(this.particles.cursor+j)%limit];if(!candidate.active){o=candidate;this.particles.cursor=(this.particles.cursor+j+1)%limit;o.active=true;break;}}if(!o)return;const a=this.rng.next()*Math.PI*2,v=this.rng.next()*speed;Object.assign(o,{x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:.15+this.rng.next()*.35,color,size:1+this.rng.next()*3});}}
- beam(x,y,tx,ty,color){this.beams=this.beams||[];this.beams.push({x,y,tx,ty,color,life:.14});}
- checkpoint(){if(this.state!=='play')return;X.profile.checkpoint=this.snapshot();X.Save.write(X.profile);}
- snapshot(){return {number:this.number,time:this.time,player:{...this.player},weapon:this.weapon,ammo:{...this.ammo},mags:[...this.mags],wave:this.wave,waveTimer:this.waveTimer,kills:this.kills,earned:this.earned,objectives:this.objectives.map(o=>({...o})),enemies:this.enemies.items.filter(e=>e.active).map(e=>({...e})),spawnQueue:this.spawnQueue.map(e=>({...e})),loot:this.loot.map(l=>({...l})),coreHp:this.coreHp,defendTime:this.defendTime,bossSpawned:this.bossSpawned,seed:this.rng.seed,stats:{...this.stats}};}
- restore(c){for(const key of ['time','weapon','wave','waveTimer','kills','earned','coreHp','defendTime','bossSpawned'])if(c[key]!==undefined)this[key]=c[key];this.player={...c.player,invuln:2};this.ammo={...c.ammo};this.mags=[...c.mags];this.objectives=c.objectives.map(o=>({...o}));this.spawnQueue=c.spawnQueue.map(e=>({...e}));this.loot=c.loot.map(l=>({...l}));for(const e of c.enemies){let o=this.enemies.get();if(o)Object.assign(o,e,{active:true});}this.rng.seed=c.seed;this.stats={...c.stats};this.map.bfs(this.player.x,this.player.y);}
- finish(win,reason='Боец погиб'){if(this.state!=='play')return;this.state=win?'victory':'dead';this.keys.clear();this.mouse.left=this.mouse.right=false;X.profile.checkpoint=null;X.profile.stats.kills+=this.kills;X.profile.stats.shots+=this.stats.shots;X.profile.stats.time+=this.time;if(win){let bonus=Math.round((350+Math.min(20,this.number)*85+Math.sqrt(Math.max(0,this.number-20))*170)*this.diff.economy);this.earned+=bonus;X.profile.credits+=this.earned;for(const a in this.ammo)X.profile.ammo[a]=this.ammo[a];for(let i=0;i<this.mags.length;i++){let a=X.weapons[i].ammo;if(a)X.profile.ammo[a]+=this.mags[i];}if(this.number<=20){if(!X.profile.completed.includes(this.number))X.profile.completed.push(this.number);X.profile.unlocked=Math.max(X.profile.unlocked,Math.min(20,this.number+1));X.profile.level=Math.min(20,this.number+1);if(this.number===20)X.profile.endless.unlocked=true;}else{X.profile.endless.stage=this.number+1;X.profile.endless.best=Math.max(X.profile.endless.best,this.number);}}else X.profile.stats.deaths++;X.Save.write(X.profile);X.UI.result(win,reason);}
- pause(){if(this.state==='play'){this.checkpoint();this.state='pause';this.keys.clear();this.mouse.left=this.mouse.right=false;X.UI.pause();}}
- resume(){if(this.state==='pause'){this.state='play';this.keys.clear();X.UI.hide();}}
- frame(t){if(!this.last)this.last=t;let dt=Math.min(.1,(t-this.last)/1000);this.last=t;this.fps=this.fps*.95+1/Math.max(.001,dt)*.05;this.accumulator+=dt;let n=0;while(this.accumulator>=1/60&&n++<6){this.update(1/60);this.accumulator-=1/60;}X.Render.draw(this,dt);if(this.state==='play')X.UI.hud(this);requestAnimationFrame(t=>this.frame(t));}
+  start(number = 1, checkpoint = null) {
+    this.number = number;
+    this.level =
+      number <= 20
+        ? X.levels[number - 1]
+        : X.generate(number, X.profile.endless.seed);
+    this.map = X.makeMap(this.level);
+    this.navSmall = this.map.navigation(14);
+    this.navBig = this.map.navigation(34);
+    this.navCore = this.map.navigation(34);
+    this.rng = new X.RNG(4111 + number * 7919);
+    this.visualRng = new X.RNG(number * 13 + 99);
+    this.diff = X.difficulties[X.profile.difficulty];
+    const p = this.map.point(this.level.start),
+      u = X.profile.upgrades;
+    this.player = {
+      ...p,
+      r: 14,
+      hp: 100 + 25 * u.health,
+      maxHp: 100 + 25 * u.health,
+      armor: 20 * u.armor,
+      maxArmor: 20 * u.armor,
+      stamina: 100,
+      dash: 0,
+      invuln: 1,
+      angle: 0,
+    };
+    this.weapon = 1;
+    this.ammo = { ...X.profile.ammo };
+    this.mags = X.weapons.map((w, i) => {
+      if (!w.ammo || !X.profile.owned.includes(i)) return 0;
+      let n = Math.min(w.mag, this.ammo[w.ammo]);
+      this.ammo[w.ammo] -= n;
+      return n;
+    });
+    this.cool = 0;
+    this.reload = 0;
+    this.charge = 0;
+    this.spin = 0;
+    this.moving = false;
+    this.time = 0;
+    this.kills = 0;
+    this.earned = 0;
+    this.wave = 0;
+    this.waveTimer = 3;
+    this.spawnQueue = [];
+    this.spawnTimer = 0;
+    this.flowTimer = 0;
+    this.checkTimer = 30;
+    this.stats = { shots: 0, damage: 0, bladeKills: 0 };
+    this.objectives = (this.level.targets || []).map((t) => ({
+      ...this.map.point(t),
+      kind: this.level.mode === "nests" ? "nest" : "terminal",
+      done: false,
+      hp: 450 + Math.min(number, 40) * 20,
+      progress: 0,
+    }));
+    this.exit = this.map.point(this.level.exit);
+    this.coreHp = 500;
+    this.defendTime = 0;
+    this.shots.clear();
+    this.enemies.clear();
+    this.particles.clear();
+    this.loot = [];
+    this.marks = [];
+    this.mapOpen = false;
+    this.damageFlash = 0;
+    this.shake = 0;
+    this.bossSpawned = false;
+    this.blasts = [];
+    this.beams = [];
+    this.arc = null;
+    this.muzzle = 0;
+    this.state = "play";
+    this.keys.clear();
+    this.mouse.left = this.mouse.right = false;
+    this.map.bfs(p.x, p.y);
+    this.map.flow(this.navSmall, p.x, p.y);
+    this.map.flow(this.navBig, p.x, p.y);
+    if (this.objectives[0])
+      this.map.flow(this.navCore, this.objectives[0].x, this.objectives[0].y);
+    this.seedLoot();
+    if (checkpoint) this.restore(checkpoint);
+    X.Render.prepare(this);
+    X.UI.hide();
+    X.UI.toast(this.level.brief, 6000);
+  }
+  seedLoot() {
+    for (const [i, p] of (
+      this.level.resources || [
+        [8, 13],
+        [28, 10],
+      ]
+    ).entries()) {
+      let q = this.map.point(p);
+      if (this.map.fits(q.x, q.y, 12))
+        this.loot.push({
+          ...q,
+          kind: i % 3 === 0 ? "health" : "ammo",
+          amount: 1,
+        });
+    }
+  }
+  interact(dt) {
+    let p = this.player;
+    for (const o of this.objectives)
+      if (
+        !o.done &&
+        o.kind === "terminal" &&
+        Math.hypot(o.x - p.x, o.y - p.y) < 95 &&
+        this.map.line(p.x, p.y, o.x, o.y)
+      ) {
+        o.progress += dt;
+        if (o.progress >= 1.5) {
+          o.done = true;
+          this.earned += 150;
+          X.UI.toast("Терминал активирован");
+          X.Audio.play("pickup");
+          this.checkpoint();
+        }
+        return;
+      }
+    if (this.ready() && Math.hypot(this.exit.x - p.x, this.exit.y - p.y) < 95)
+      this.finish(true);
+  }
+  ready() {
+    return (
+      this.wave >= this.level.waves &&
+      !this.spawnQueue.length &&
+      !this.activeEnemies() &&
+      this.objectives.every((o) => o.done) &&
+      (this.level.mode !== "defend" ||
+        this.defendTime >=
+          this.level.waves * this.level.interval * X.profile.settings.pace)
+    );
+  }
+  newWave() {
+    this.wave++;
+    let count = Math.round(
+      Math.min(
+        100,
+        9 +
+          Math.min(this.number, 35) * 1.65 +
+          this.wave * 2 +
+          Math.log2(1 + Math.max(0, this.number - 20)) * 3,
+      ) * this.diff.count,
+    );
+    if (
+      this.level.mode === "boss" &&
+      this.wave === this.level.waves &&
+      !this.bossSpawned
+    ) {
+      this.bossSpawned = true;
+      this.spawnQueue.push({ type: this.level.boss, elite: false });
+      count = Math.round(count * 0.5);
+    }
+    for (let i = 0; i < count; i++)
+      this.spawnQueue.push({
+        type: this.rng.pick(this.level.types),
+        elite:
+          this.rng.next() <
+          Math.min(
+            0.38,
+            this.diff.elite +
+              Math.log2(1 + Math.max(0, this.number - 20)) * 0.025,
+          ),
+      });
+    this.waveTimer = this.level.interval * X.profile.settings.pace;
+    X.UI.toast("Контакт · волна " + this.wave + " / " + this.level.waves, 2200);
+  }
+  update(dt) {
+    if (this.state !== "play") return;
+    this.clock += dt;
+    this.time += dt;
+    this.cool = Math.max(0, this.cool - dt);
+    this.shake = Math.max(0, this.shake - dt * 20);
+    this.damageFlash = Math.max(0, this.damageFlash - dt * 2);
+    let p = this.player,
+      k = X.profile.settings.keys;
+    let dx = (this.keys.has(k.right) ? 1 : 0) - (this.keys.has(k.left) ? 1 : 0),
+      dy = (this.keys.has(k.down) ? 1 : 0) - (this.keys.has(k.up) ? 1 : 0),
+      length = Math.hypot(dx, dy);
+    if (length) {
+      dx /= length;
+      dy /= length;
+    }
+    this.camera.x = Math.max(0, Math.min(this.map.w * 48 - 1152, p.x - 576));
+    this.camera.y = Math.max(0, Math.min(this.map.h * 48 - 648, p.y - 324));
+    p.angle = Math.atan2(
+      this.mouse.y + this.camera.y - p.y,
+      this.mouse.x + this.camera.x - p.x,
+    );
+    this.muzzle = Math.max(0, this.muzzle - dt);
+    let sprint = this.keys.has(k.sprint) && p.stamina > 0 && length;
+    this.moving = !!length;
+    let speed =
+      185 * (1 + 0.06 * X.profile.upgrades.speed) * (sprint ? 1.6 : 1);
+    if (
+      X.weapons[this.weapon].kind === "machine" &&
+      (this.mouse.left || this.mouse.right)
+    )
+      speed *= 0.65;
+    p.stamina = Math.max(
+      0,
+      Math.min(100, p.stamina + (sprint ? -32 : 23) * dt),
+    );
+    p.dash = Math.max(0, p.dash - dt);
+    p.invuln = Math.max(0, p.invuln - dt);
+    if (this.keys.has(k.dash) && p.dash <= 0) {
+      let a = length ? Math.atan2(dy, dx) : p.angle;
+      for (let i = 0; i < 12; i++)
+        this.map.move(p, Math.cos(a) * 12, Math.sin(a) * 12);
+      p.dash = 2.4;
+      p.invuln = 0.32;
+      this.fx(p.x, p.y, "#78d8dc", 12, 100);
+      X.Audio.play("dash");
+    }
+    this.map.move(p, dx * speed * dt, dy * speed * dt);
+    this.camera.x = Math.max(0, Math.min(this.map.w * 48 - 1152, p.x - 576));
+    this.camera.y = Math.max(0, Math.min(this.map.h * 48 - 648, p.y - 324));
+    if (this.keys.has(k.interact)) this.interact(dt);
+    if (this.state !== "play") return;
+    if (this.reload > 0) {
+      this.reload -= dt;
+      if (this.reload <= 0) {
+        this.reload = 0;
+        let w = X.weapons[this.weapon],
+          n = Math.min(w.mag - this.mags[this.weapon], this.ammo[w.ammo]);
+        this.mags[this.weapon] += n;
+        this.ammo[w.ammo] -= n;
+      }
+    } else if ((this.mouse.left || this.mouse.right) && this.cool <= 0) {
+      let w = X.weapons[this.weapon];
+      this.charge += dt;
+      if (!w.charge || this.charge >= w.charge) {
+        this.fire(this.mouse.right);
+        this.charge = 0;
+      }
+    } else if (!this.mouse.left && !this.mouse.right) {
+      this.charge = 0;
+      this.spin = Math.max(0, this.spin - dt * 2);
+    }
+    if (this.mouse.left || this.mouse.right)
+      this.spin = Math.min(1, this.spin + dt);
+    this.waveTimer -= dt;
+    if (this.wave < this.level.waves && this.waveTimer <= 0) this.newWave();
+    this.spawnTimer -= dt;
+    if (
+      this.spawnQueue.length &&
+      this.spawnTimer <= 0 &&
+      this.activeEnemies() < X.C.maxEnemies - 8
+    ) {
+      let s = this.rng.pick(this.level.spawns),
+        q = this.map.point(s);
+      if (Math.hypot(q.x - p.x, q.y - p.y) < 250) {
+        let far = this.level.spawns.reduce((a, b) => {
+          const pa = this.map.point(a),
+            pb = this.map.point(b);
+          return Math.hypot(pa.x - p.x, pa.y - p.y) >
+            Math.hypot(pb.x - p.x, pb.y - p.y)
+            ? a
+            : b;
+        });
+        q = this.map.point(far);
+      }
+      let entry = this.spawnQueue.shift();
+      this.spawn(entry.type, q.x, q.y, entry.elite);
+      this.fx(q.x, q.y, "#a56ce4", 4, 40);
+      this.spawnTimer = 0.13;
+    }
+    this.flowTimer -= dt;
+    if (this.flowTimer <= 0) {
+      this.map.bfs(p.x, p.y);
+      this.map.flow(this.navSmall, p.x, p.y);
+      this.map.flow(this.navBig, p.x, p.y);
+      this.flowTimer = 0.35;
+    }
+    this.hash.clear();
+    for (const e of this.enemies.items) if (e.active) this.hash.insert(e);
+    for (const e of this.enemies.items) if (e.active) this.enemyStep(e, dt);
+    this.projectileStep(dt);
+    this.lootStep();
+    if (this.level.mode === "defend" && this.objectives.every((o) => o.done))
+      this.defendTime += dt;
+    for (const [x, y, w, h] of this.level.hazards || [])
+      if (
+        this.time % 6 > 4 &&
+        p.x > x * 48 &&
+        p.x < (x + w) * 48 &&
+        p.y > y * 48 &&
+        p.y < (y + h) * 48
+      )
+        this.hurtPlayer(12 * this.diff.damage);
+    if (
+      this.level.mode === "timed" &&
+      this.time > this.level.limit * X.profile.settings.pace
+    ) {
+      this.finish(false, "Реактор достиг критической массы");
+      return;
+    }
+    for (const o of this.particles.items)
+      if (o.active) {
+        o.life -= dt;
+        if (o.life <= 0) o.active = false;
+        else {
+          o.x += o.vx * dt;
+          o.y += o.vy * dt;
+          o.vx *= 0.96;
+          o.vy *= 0.96;
+        }
+      }
+    this.checkTimer -= dt;
+    if (this.checkTimer <= 0) {
+      this.checkpoint();
+      this.checkTimer = 30;
+    }
+    if (p.hp <= 0) this.finish(false);
+  }
+  lootStep() {
+    let p = this.player;
+    for (let i = this.loot.length - 1; i >= 0; i--) {
+      const l = this.loot[i];
+      if (Math.hypot(l.x - p.x, l.y - p.y) < 35) {
+        if (l.kind === "health")
+          p.hp = Math.min(p.maxHp, p.hp + 30 * l.amount * this.diff.loot);
+        else {
+          const keys = [
+            ...new Set(
+              X.profile.owned.map((i) => X.weapons[i].ammo).filter(Boolean),
+            ),
+          ];
+          for (const a of keys)
+            this.ammo[a] += Math.ceil(
+              X.ammo[a].pack * 0.22 * l.amount * this.diff.loot,
+            );
+        }
+        this.loot.splice(i, 1);
+        X.Audio.play("pickup");
+      }
+    }
+  }
+  fx(x, y, color, n, speed) {
+    let limit = [100, 350, 700][X.profile.settings.quality];
+    for (let i = 0; i < n; i++) {
+      let o = null;
+      for (let j = 0; j < limit; j++) {
+        const candidate =
+          this.particles.items[(this.particles.cursor + j) % limit];
+        if (!candidate.active) {
+          o = candidate;
+          this.particles.cursor = (this.particles.cursor + j + 1) % limit;
+          o.active = true;
+          break;
+        }
+      }
+      if (!o) return;
+      const a = this.visualRng.next() * Math.PI * 2,
+        v = this.visualRng.next() * speed;
+      Object.assign(o, {
+        x,
+        y,
+        vx: Math.cos(a) * v,
+        vy: Math.sin(a) * v,
+        life: 0.15 + this.visualRng.next() * 0.35,
+        color,
+        size: 1 + this.visualRng.next() * 3,
+      });
+    }
+  }
+  beam(x, y, tx, ty, color) {
+    this.beams = this.beams || [];
+    this.beams.push({ x, y, tx, ty, color, life: 0.14 });
+    if (this.beams.length > 64) this.beams.shift();
+  }
+  checkpoint() {
+    if (this.state !== "play") return;
+    X.profile.checkpoint = this.snapshot();
+    X.Save.write(X.profile);
+  }
+  snapshot() {
+    return {
+      number: this.number,
+      time: this.time,
+      player: { ...this.player },
+      weapon: this.weapon,
+      ammo: { ...this.ammo },
+      mags: [...this.mags],
+      wave: this.wave,
+      waveTimer: this.waveTimer,
+      kills: this.kills,
+      earned: this.earned,
+      objectives: this.objectives.map((o) => ({ ...o })),
+      enemies: this.enemies.items
+        .filter((e) => e.active)
+        .map((e) => ({ ...e })),
+      spawnQueue: this.spawnQueue.map((e) => ({ ...e })),
+      loot: this.loot.map((l) => ({ ...l })),
+      coreHp: this.coreHp,
+      defendTime: this.defendTime,
+      bossSpawned: this.bossSpawned,
+      seed: this.rng.seed,
+      stats: { ...this.stats },
+    };
+  }
+  restore(c) {
+    for (const key of [
+      "time",
+      "weapon",
+      "wave",
+      "waveTimer",
+      "kills",
+      "earned",
+      "coreHp",
+      "defendTime",
+      "bossSpawned",
+    ])
+      if (c[key] !== undefined) this[key] = c[key];
+    this.player = { ...c.player, r: 14, invuln: 2 };
+    this.ammo = { ...c.ammo };
+    this.mags = [...c.mags];
+    this.objectives = c.objectives.map((o) => ({ ...o }));
+    this.spawnQueue = c.spawnQueue.map((e) => ({ ...e }));
+    this.loot = c.loot.map((l) => ({ ...l }));
+    for (const e of c.enemies) {
+      let o = this.enemies.get();
+      if (o)
+        Object.assign(o, e, {
+          active: true,
+          r: X.enemies[e.type].radius,
+          pathIndex: -1,
+          pathX: e.x,
+          pathY: e.y,
+          losTimer: 0,
+          clear: false,
+        });
+    }
+    this.rng.seed = c.seed;
+    this.stats = { shots: 0, damage: 0, bladeKills: 0, ...c.stats };
+    this.map.bfs(this.player.x, this.player.y);
+    this.map.flow(this.navSmall, this.player.x, this.player.y);
+    this.map.flow(this.navBig, this.player.x, this.player.y);
+  }
+  finish(win, reason = "Боец погиб") {
+    if (this.state !== "play") return;
+    this.state = win ? "victory" : "dead";
+    this.keys.clear();
+    this.mouse.left = this.mouse.right = false;
+    X.profile.checkpoint = null;
+    X.profile.stats.kills += this.kills;
+    X.profile.stats.shots += this.stats.shots;
+    X.profile.stats.time += this.time;
+    if (win) {
+      let bonus = Math.round(
+        (350 +
+          Math.min(20, this.number) * 85 +
+          Math.sqrt(Math.max(0, this.number - 20)) * 170) *
+          this.diff.economy,
+      );
+      this.earned += bonus;
+      this.medals = [];
+      if (this.stats.damage === 0) {
+        this.earned += 300;
+        this.medals.push("БЕЗ ЕДИНОЙ ЦАРАПИНЫ +300");
+      }
+      if (this.stats.bladeKills >= 20) {
+        this.earned += 250;
+        this.medals.push("МАСТЕР КЛИНКА +250");
+      }
+      X.profile.stats.medals += this.medals.length;
+      X.profile.credits = Math.min(1e8, X.profile.credits + this.earned);
+      for (const a in this.ammo) X.profile.ammo[a] = this.ammo[a];
+      for (let i = 0; i < this.mags.length; i++) {
+        let a = X.weapons[i].ammo;
+        if (a) X.profile.ammo[a] += this.mags[i];
+      }
+      if (this.number <= 20) {
+        if (!X.profile.completed.includes(this.number))
+          X.profile.completed.push(this.number);
+        X.profile.unlocked = Math.max(
+          X.profile.unlocked,
+          Math.min(20, this.number + 1),
+        );
+        X.profile.level = Math.min(20, this.number + 1);
+        if (this.number === 20) X.profile.endless.unlocked = true;
+      } else {
+        X.profile.endless.stage = this.number + 1;
+        X.profile.endless.best = Math.max(X.profile.endless.best, this.number);
+      }
+    } else X.profile.stats.deaths++;
+    X.Save.write(X.profile);
+    X.UI.result(win, reason);
+  }
+  pause() {
+    if (this.state === "play") {
+      this.checkpoint();
+      this.state = "pause";
+      this.keys.clear();
+      this.mouse.left = this.mouse.right = false;
+      X.UI.pause();
+    }
+  }
+  resume() {
+    if (this.state === "pause") {
+      this.state = "play";
+      this.keys.clear();
+      X.UI.hide();
+    }
+  }
+  frame(t) {
+    if (!this.last) this.last = t;
+    let dt = Math.min(0.1, (t - this.last) / 1000);
+    this.last = t;
+    this.fps = this.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
+    this.accumulator += dt;
+    let n = 0;
+    while (this.accumulator >= 1 / 60 && n++ < 6) {
+      this.update(1 / 60);
+      this.accumulator -= 1 / 60;
+    }
+    X.Render.draw(this, dt);
+    if (this.state === "play") X.UI.hud(this);
+    requestAnimationFrame((t) => this.frame(t));
+  }
 };

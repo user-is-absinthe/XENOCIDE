@@ -1,2 +1,383 @@
-@font-face{font-family:Local;src:local('Bahnschrift')}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05090e;color:#dce6e6;font-family:Local,'Segoe UI',sans-serif}canvas{width:100%;height:100%;display:block;object-fit:contain;image-rendering:pixelated}button,select,input{font:inherit}button{border:1px solid #39535b;color:#dce9e9;background:#15232b;padding:12px 18px;cursor:pointer;transition:.15s}button:hover,button:focus-visible{background:#25404a;border-color:#6de2ce;outline:none}button:disabled{opacity:.35;cursor:default}.primary{background:#be4f27;border-color:#ff8353;color:#fff}.primary:hover{background:#dc6433}.danger{color:#ff947b}#overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:linear-gradient(90deg,#060d15ed,#060d15a0);overflow:auto;padding:24px}#overlay:empty{display:none}.panel{width:min(1050px,100%);max-height:94vh;overflow:auto;background:linear-gradient(130deg,#101e27ee,#081018f5);border:1px solid #3b535b;box-shadow:0 25px 100px #0009;padding:32px}.eyebrow{color:#7da7b0;letter-spacing:.23em;font-size:12px;text-transform:uppercase}.brand{font-size:clamp(42px,7vw,94px);letter-spacing:.13em;font-weight:900;line-height:1.15;margin:10px 0;color:#e2eee9;text-shadow:3px 3px #3c5b60}h1,h2,h3,p{margin:0 0 16px}h2{font-size:30px;letter-spacing:.05em}p{color:#a5bdc4;line-height:1.5}.columns{display:grid;grid-template-columns:1.1fr 1fr;gap:32px}.menu{display:grid;gap:9px}.menu button{text-align:left}.rule{height:1px;background:#30454d;margin:22px 0}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0}.row label{min-width:210px}select{padding:9px;background:#15232b;color:#dce9e9;border:1px solid #39535b}input[type=range]{accent-color:#73d6c7}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}.card{border:1px solid #30454d;background:#0e1b22;padding:16px}.card p{font-size:13px;min-height:40px}.card button{width:100%;font-size:13px}.tag{font-size:11px;letter-spacing:.15em;color:#e78057}.money{font-size:24px;color:#efbb67}.small{font-size:12px;color:#77969f}.warn{color:#ffc785}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin:24px 0}.stats b{display:block;color:#e9ba6b;font-size:28px}#hud{position:absolute;inset:0;pointer-events:none;padding:20px;display:none;text-shadow:1px 2px #000}.hud-top{display:flex;justify-content:space-between;gap:20px}.mission{background:#07131cbd;border-left:3px solid #dc7345;padding:12px 18px;max-width:600px}.mission b{display:block;font-size:17px;margin-bottom:4px}.mission span{font-size:13px;color:#b6ccce}.hud-bottom{position:absolute;bottom:20px;left:20px;right:20px;display:flex;justify-content:space-between;align-items:end}.vitals,.weapon{background:#07131cdd;border:1px solid #31484e;padding:14px 18px;min-width:240px}.bar{height:6px;background:#25343a;margin:7px 0}.bar i{display:block;height:100%;background:#79cba6}.armor i{background:#69a9d0}.stamina i{background:#d5b26b}.boss{position:absolute;top:110px;left:30%;width:40%;text-align:center;color:#f5a48c}.boss .bar i{background:#ce5e48}.weapon{text-align:right}.weapon strong{font-size:28px;color:#f0c984}.hint{color:#93b0b9;font-size:12px}#toast{position:absolute;bottom:155px;left:50%;transform:translateX(-50%);max-width:80%;padding:12px 22px;background:#10232bf0;border:1px solid #6faaa3;pointer-events:none;opacity:0;transition:opacity .2s;text-align:center}.visible{opacity:1!important}.level-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.level-grid button{font-size:13px;min-height:65px;text-align:left}.key{border:1px solid #526971;padding:3px 8px;color:#dce6e6}footer{margin-top:24px;font-size:11px;letter-spacing:.13em;color:#65818a}@media(max-width:720px){.columns{grid-template-columns:1fr}.panel{padding:20px}.brand{font-size:42px}.level-grid{grid-template-columns:repeat(2,1fr)}.stats{grid-template-columns:repeat(2,1fr)}#hud{padding:8px}.hud-bottom{bottom:8px;left:8px;right:8px}.vitals,.weapon{min-width:170px;padding:8px}.mission{max-width:70%}}
-.lead{font-size:28px;color:#c8dddc;line-height:1.3}.intel{display:flex;gap:25px;margin:24px 0}.intel span{font-size:10px;color:#7899a4;letter-spacing:.1em}.intel b{display:block;color:#d8b77d;font-size:24px;letter-spacing:0;margin-top:7px}.binding{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}.binding button{padding:5px 12px;min-width:90px}.card button{margin-top:8px}#preview{width:100%;height:auto;border:1px solid #3b535b}
+@font-face {
+  font-family: Local;
+  src: local("Bahnschrift");
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #05090e;
+  color: #dce6e6;
+  font-family: Local, "Segoe UI", sans-serif;
+}
+canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button {
+  border: 1px solid #39535b;
+  color: #dce9e9;
+  background: #15232b;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: 0.15s;
+}
+button:hover,
+button:focus-visible {
+  background: #25404a;
+  border-color: #6de2ce;
+  outline: none;
+}
+button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.primary {
+  background: #be4f27;
+  border-color: #ff8353;
+  color: #fff;
+}
+.primary:hover {
+  background: #dc6433;
+}
+.danger {
+  color: #ff947b;
+}
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(90deg, #060d15ed, #060d15a0);
+  overflow: auto;
+  padding: 24px;
+}
+#overlay:empty {
+  display: none;
+}
+.panel {
+  width: min(1050px, 100%);
+  max-height: 94vh;
+  overflow: auto;
+  background: linear-gradient(130deg, #101e27ee, #081018f5);
+  border: 1px solid #3b535b;
+  box-shadow: 0 25px 100px #0009;
+  padding: 32px;
+}
+.eyebrow {
+  color: #7da7b0;
+  letter-spacing: 0.23em;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+.brand {
+  font-size: clamp(42px, 7vw, 94px);
+  letter-spacing: 0.13em;
+  font-weight: 900;
+  line-height: 1.15;
+  margin: 10px 0;
+  color: #e2eee9;
+  text-shadow: 3px 3px #3c5b60;
+}
+h1,
+h2,
+h3,
+p {
+  margin: 0 0 16px;
+}
+h2 {
+  font-size: 30px;
+  letter-spacing: 0.05em;
+}
+p {
+  color: #a5bdc4;
+  line-height: 1.5;
+}
+.columns {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 32px;
+}
+.menu {
+  display: grid;
+  gap: 9px;
+}
+.menu button {
+  text-align: left;
+}
+.rule {
+  height: 1px;
+  background: #30454d;
+  margin: 22px 0;
+}
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.row label {
+  min-width: 210px;
+}
+select {
+  padding: 9px;
+  background: #15232b;
+  color: #dce9e9;
+  border: 1px solid #39535b;
+}
+input[type="range"] {
+  accent-color: #73d6c7;
+}
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+.card {
+  border: 1px solid #30454d;
+  background: #0e1b22;
+  padding: 16px;
+}
+.card p {
+  font-size: 13px;
+  min-height: 40px;
+}
+.card button {
+  width: 100%;
+  font-size: 13px;
+}
+.tag {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: #e78057;
+}
+.money {
+  font-size: 24px;
+  color: #efbb67;
+}
+.small {
+  font-size: 12px;
+  color: #77969f;
+}
+.warn {
+  color: #ffc785;
+}
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 15px;
+  margin: 24px 0;
+}
+.stats b {
+  display: block;
+  color: #e9ba6b;
+  font-size: 28px;
+}
+#hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: 20px;
+  display: none;
+  text-shadow: 1px 2px #000;
+}
+.hud-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+}
+.mission {
+  background: #07131cbd;
+  border-left: 3px solid #dc7345;
+  padding: 12px 18px;
+  max-width: 600px;
+}
+.mission b {
+  display: block;
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+.mission span {
+  font-size: 13px;
+  color: #b6ccce;
+}
+.hud-bottom {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+}
+.vitals,
+.weapon {
+  background: #07131cdd;
+  border: 1px solid #31484e;
+  padding: 14px 18px;
+  min-width: 240px;
+}
+.bar {
+  height: 6px;
+  background: #25343a;
+  margin: 7px 0;
+}
+.bar i {
+  display: block;
+  height: 100%;
+  background: #79cba6;
+}
+.armor i {
+  background: #69a9d0;
+}
+.stamina i {
+  background: #d5b26b;
+}
+.boss {
+  position: absolute;
+  top: 110px;
+  left: 30%;
+  width: 40%;
+  text-align: center;
+  color: #f5a48c;
+}
+.boss .bar i {
+  background: #ce5e48;
+}
+.weapon {
+  text-align: right;
+}
+.weapon strong {
+  font-size: 28px;
+  color: #f0c984;
+}
+.hint {
+  color: #93b0b9;
+  font-size: 12px;
+}
+#toast {
+  position: absolute;
+  bottom: 155px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 80%;
+  padding: 12px 22px;
+  background: #10232bf0;
+  border: 1px solid #6faaa3;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  text-align: center;
+}
+.visible {
+  opacity: 1 !important;
+}
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.level-grid button {
+  font-size: 13px;
+  min-height: 65px;
+  text-align: left;
+}
+.key {
+  border: 1px solid #526971;
+  padding: 3px 8px;
+  color: #dce6e6;
+}
+footer {
+  margin-top: 24px;
+  font-size: 11px;
+  letter-spacing: 0.13em;
+  color: #65818a;
+}
+@media (max-width: 720px) {
+  .columns {
+    grid-template-columns: 1fr;
+  }
+  .panel {
+    padding: 20px;
+  }
+  .brand {
+    font-size: 42px;
+  }
+  .level-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  #hud {
+    padding: 8px;
+  }
+  .hud-bottom {
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+  }
+  .vitals,
+  .weapon {
+    min-width: 170px;
+    padding: 8px;
+  }
+  .mission {
+    max-width: 70%;
+  }
+}
+.lead {
+  font-size: 28px;
+  color: #c8dddc;
+  line-height: 1.3;
+}
+.intel {
+  display: flex;
+  gap: 25px;
+  margin: 24px 0;
+}
+.intel span {
+  font-size: 10px;
+  color: #7899a4;
+  letter-spacing: 0.1em;
+}
+.intel b {
+  display: block;
+  color: #d8b77d;
+  font-size: 24px;
+  letter-spacing: 0;
+  margin-top: 7px;
+}
+.binding {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 5px;
+}
+.binding button {
+  padding: 5px 12px;
+  min-width: 90px;
+}
+.card button {
+  margin-top: 8px;
+}
+#preview {
+  width: 100%;
+  height: auto;
+  border: 1px solid #3b535b;
+}
