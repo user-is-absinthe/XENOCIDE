@@ -12,3 +12,4 @@ html = (root / 'index.html').read_text(encoding='utf-8')
 for src in re.findall(r'(?:src|href)="([^"]+)"', html):
     assert (root / src).is_file(), src
 print(f'PASS: {len(files)} JS файлов, синтаксис, локальные ресурсы, нет сетевых API')
+subprocess.run(['node', 'tools/data_test.js'], cwd=root, check=True)
