@@ -225,6 +225,53 @@ input[type="range"] {
   color: #e9ba6b;
   font-size: 28px;
 }
+.score-summary {
+  margin: 18px 0;
+  padding: 15px 18px;
+  background: #10232b;
+  border-left: 3px solid #6de2ce;
+  color: #b3d5d3;
+}
+.score-summary strong {
+  font-size: 30px;
+  color: #94e0ce;
+  margin-right: 8px;
+}
+.record-table-wrap {
+  overflow-x: auto;
+}
+.record-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.record-table th,
+.record-table td {
+  padding: 12px 10px;
+  border-bottom: 1px solid #30454d;
+  text-align: left;
+  white-space: nowrap;
+}
+.record-table th {
+  color: #7fa5af;
+  font-size: 12px;
+}
+.record-table td:nth-child(2) {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  max-width: 240px;
+}
+.record-points {
+  color: #efc480;
+  font-weight: bold;
+}
+.record-empty {
+  padding: 24px 0;
+}
+.record-run {
+  margin-top: 20px;
+  color: #a6d9cd;
+}
 #hud {
   position: absolute;
   inset: 0;

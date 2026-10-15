@@ -31,7 +31,10 @@ X.Game = class {
     this.navCore = this.map.navigation(34);
     this.rng = new X.RNG(4111 + number * 7919);
     this.visualRng = new X.RNG(number * 13 + 99);
-    this.diff = X.difficulties[X.profile.difficulty];
+    this.difficulty = X.profile.difficulty;
+    this.pace = X.profile.settings.pace;
+    this.diff = X.difficulties[this.difficulty];
+    this.scoreResult = null;
     const p = this.map.point(this.level.start),
       u = X.profile.upgrades;
     this.player = {
@@ -103,6 +106,7 @@ X.Game = class {
       this.map.flow(this.navCore, this.objectives[0].x, this.objectives[0].y);
     this.seedLoot();
     if (checkpoint) this.restore(checkpoint);
+    X.Scoring.start(this);
     X.Render.prepare(this);
     X.UI.hide();
     X.UI.toast(this.level.brief, 6000);
@@ -340,6 +344,7 @@ X.Game = class {
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const l = this.loot[i];
       if (Math.hypot(l.x - p.x, l.y - p.y) >= 35) continue;
+      if (l.kind === "health" && p.hp >= p.maxHp) continue;
       if (l.kind === "health")
         p.hp = Math.min(p.maxHp, p.hp + 30 * l.amount * this.diff.loot);
       else
@@ -469,8 +474,10 @@ X.Game = class {
   finish(win, reason = "Боец погиб") {
     if (this.state !== "play") return;
     this.state = win ? "victory" : "dead";
+    this.resultReason = reason;
     this.keys.clear();
     this.mouse.left = this.mouse.right = false;
+    this.scoreResult = X.Scoring.finish(this, win);
     X.profile.checkpoint = null;
     X.profile.stats.kills += this.kills;
     X.profile.stats.shots += this.stats.shots;

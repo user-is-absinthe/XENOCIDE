@@ -47,6 +47,8 @@ X.Save = {
         },
       },
       checkpoint: null,
+      records: X.Scoring.defaults(),
+      campaignRun: null,
     };
   },
   number(v, min, max, fallback = 0) {
@@ -59,6 +61,8 @@ X.Save = {
       throw Error("Неверный формат или версия профиля");
     const d = this.defaults(),
       num = (v, a, b, f = 0) => this.number(v, a, b, f);
+    d.records = X.Scoring.validateRecords(s.records);
+    d.campaignRun = X.Scoring.validateRun(s.campaignRun);
     for (const k of ["level", "unlocked"])
       d[k] = Math.floor(num(s[k], 1, 20, 1));
     d.difficulty = Math.floor(num(s.difficulty, 0, 3, 1));

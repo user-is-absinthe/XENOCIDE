@@ -123,6 +123,7 @@ X.UI = {
             : "ПРОДОЛЖИТЬ · СЕКТОР " + p.level,
         ) +
         this.button("levels", "ВЫБОР МИССИИ") +
+        this.button("records", "ТАБЛИЦА ЛИДЕРОВ") +
         this.button("debug", "ПОЛИГОН · УРОВНИ И ЧИТЫ") +
         this.button(
           "endless",
@@ -450,7 +451,24 @@ X.UI = {
               ? "Кампания завершена. Бесконечная экспедиция разблокирована."
               : g.level.chapter + " · операция продолжается."
             : "Снаряжение и кредиты до высадки сохранены. Попробуйте другой арсенал или сложность.") +
-        '</p><div class="stats"><div><b>' +
+        '</p><div class="score-summary"><strong>' +
+        X.RecordsUI.number(g.scoreResult?.points || 0) +
+        "</strong> очков за скорость" +
+        (X.Debug.active
+          ? " · тестовый результат"
+          : g.scoreResult?.rank
+            ? " · место " + g.scoreResult.rank + " для этих условий"
+            : "") +
+        (g.scoreResult?.campaignPoints != null
+          ? '<div class="small">Кампания: ' +
+            X.RecordsUI.number(g.scoreResult.campaignPoints) +
+            " очков" +
+            (g.scoreResult.campaignRank
+              ? " · место " + g.scoreResult.campaignRank
+              : "") +
+            "</div>"
+          : "") +
+        '</div><div class="stats"><div><b>' +
         g.kills +
         "</b>уничтожено</div><div><b>" +
         this.time(g.time) +
@@ -477,6 +495,7 @@ X.UI = {
           true,
         ) +
         this.button("shop", "АРСЕНАЛ") +
+        (X.Debug.active ? "" : this.button("records", "ТАБЛИЦА ЛИДЕРОВ")) +
         this.button("menu", "МЕНЮ") +
         "</div>",
       "result",
@@ -618,7 +637,9 @@ X.UI = {
       X.difficulties[X.profile.difficulty].name +
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
-      ' · карта</div></div><div class="hud-bottom"><div class="vitals">ЗДОРОВЬЕ ' +
+      " · карта<br>Очки за текущий темп: " +
+      X.RecordsUI.number(X.Scoring.points(g.number, g.time, g.difficulty)) +
+      '</div></div><div class="hud-bottom"><div class="vitals">ЗДОРОВЬЕ ' +
       Math.max(0, Math.ceil(p.hp)) +
       " / " +
       p.maxHp +
@@ -676,6 +697,27 @@ X.UI = {
       return;
     }
     switch (act) {
+      case "records":
+        if (X.Debug.active) {
+          this.toast("Таблицы рекордов доступны после выхода из полигона");
+          break;
+        }
+        if (this.screen !== "records") {
+          this.recordsReturn = { screen: this.screen };
+          if (this.screen === "result") {
+            X.RecordsUI.view.kind = g.scoreResult?.campaignRank
+              ? "campaign"
+              : "levels";
+            X.RecordsUI.view.level = Math.min(20, g.number);
+          }
+        }
+        X.RecordsUI.show(v);
+        break;
+      case "recordsBack":
+        if (this.recordsReturn?.screen === "result")
+          this.result(g.state === "victory", g.resultReason || "Боец погиб");
+        else this.menu();
+        break;
       case "debugEnter":
       case "debug":
         X.Debug.enter();
@@ -706,7 +748,7 @@ X.UI = {
         p.stats.kills || p.completed.length || p.checkpoint
           ? this.confirm(
               "Новая кампания?",
-              "Текущий прогресс будет заменён. Экспортируйте JSON для резервной копии.",
+              "Текущий прогресс будет заменён. Таблицы рекордов сохранятся. Экспортируйте JSON для резервной копии.",
               "setup",
             )
           : this.setup();
@@ -715,10 +757,12 @@ X.UI = {
         this.setup();
         break;
       case "begin": {
-        const settings = p.settings,
+        const records = p.records,
+          settings = p.settings,
           difficulty = p.difficulty;
         X.profile = X.Save.defaults();
         X.profile.settings = settings;
+        X.profile.records = records;
         X.profile.difficulty = difficulty;
         X.Save.write(X.profile);
         this.next = 1;
@@ -811,7 +855,7 @@ X.UI = {
       case "reset":
         this.confirm(
           "Удалить весь прогресс?",
-          "Кампания, арсенал, кредиты и контрольная точка будут удалены. Настройки сохранятся.",
+          "Кампания, арсенал, кредиты, контрольная точка и таблицы рекордов будут удалены. Настройки сохранятся.",
           "doreset",
         );
         break;
@@ -913,6 +957,7 @@ document.addEventListener("click", (e) => {
   } else X.UI.action(b.dataset.act);
 });
 document.addEventListener("change", (e) => {
+  if (e.target.id.startsWith("records-")) return;
   if (
     e.target.id === "difficulty" &&
     X.game.state !== "pause" &&
