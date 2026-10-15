@@ -80,11 +80,11 @@ Object.assign(X.Game.prototype, {
     this.stats.shots++;
     this.muzzle = 0.055;
     let damage =
-        w.damage *
-        (1 +
-          0.1 * X.profile.upgrades.power +
-          0.12 * (X.profile.weaponMods[w.id] || 0)) *
-        (alt ? 1.65 : 1),
+        X.WeaponStats.damage(
+          w,
+          X.profile.weaponMods[w.id] || 0,
+          X.profile.upgrades.power,
+        ) * (alt ? 1.65 : 1),
       angle = p.angle;
     X.Audio.play(w.kind, w.damage / 50);
     this.fx(

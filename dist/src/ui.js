@@ -232,6 +232,45 @@ X.UI = {
     mark(l.exit, "#7fffc7");
     l.targets.forEach((a) => mark(a, "#ffad65"));
   },
+  weaponModInfo(w, level) {
+    const stats = X.WeaponStats,
+      maxed = level >= stats.modMax,
+      damage = (n) =>
+        stats
+          .damage(w, n, X.profile.upgrades.power)
+          .toLocaleString("ru-RU", { maximumFractionDigits: 2 }),
+      label = w.pellets
+        ? "Урон одной дробины"
+        : w.kind === "flame"
+          ? "Урон струи за один выстрел"
+          : w.kind === "tesla"
+            ? "Урон первой цели цепи"
+            : w.blast
+              ? "Урон в центре взрыва"
+              : w.kind === "blade"
+                ? "Урон удара"
+                : "Урон одного снаряда";
+    return (
+      '<div class="weapon-mod-info"><b>Усиление урона · ' +
+      level +
+      "/" +
+      stats.modMax +
+      "</b><br>Каждый уровень: +" +
+      Math.round(stats.modDamage * 100) +
+      "% базового урона.<br>" +
+      label +
+      ": <strong>" +
+      damage(level) +
+      (maxed ? "" : " → " + damage(level + 1)) +
+      "</strong>" +
+      (maxed ? " · максимум" : " после покупки") +
+      '<br><span class="small">Бонус этого оружия: +' +
+      Math.round(level * stats.modDamage * 100) +
+      "%. Учтён имплант усилителя; до сопротивлений цели и режима ПКМ." +
+      (w.kind === "flame" ? " Урон последующего горения не меняется." : "") +
+      "</span></div>"
+    );
+  },
   shop() {
     if (X.profile.checkpoint) {
       this.toast("Магазин доступен между миссиями");
@@ -279,10 +318,18 @@ X.UI = {
             own || locked || p.credits < w.price,
           ) +
           (own
-            ? B(
+            ? this.weaponModInfo(w, mod) +
+              B(
                 "mod:" + i,
-                "УСИЛЕНИЕ " + mod + "/3 · ₡ " + cost,
-                mod >= 3 || p.credits < cost,
+                mod >= X.WeaponStats.modMax
+                  ? "МАКСИМАЛЬНОЕ УСИЛЕНИЕ"
+                  : "УЛУЧШИТЬ ДО " +
+                      (mod + 1) +
+                      "/" +
+                      X.WeaponStats.modMax +
+                      " · ₡ " +
+                      cost,
+                mod >= X.WeaponStats.modMax || p.credits < cost,
               )
             : "") +
           "</article>"

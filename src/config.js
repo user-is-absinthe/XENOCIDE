@@ -8,6 +8,14 @@ X.C = {
   maxShots: 1000,
   maxParticles: 700,
 };
+X.WeaponStats = {
+  modMax: 3,
+  modDamage: 0.12,
+  powerDamage: 0.1,
+  damage(w, mod, power) {
+    return w.damage * (1 + this.powerDamage * power + this.modDamage * mod);
+  },
+};
 X.difficulties = [
   {
     name: "Лёгкая",

@@ -81,7 +81,9 @@ X.Save = {
     for (const u of X.upgrades)
       d.upgrades[u.id] = Math.floor(num(s.upgrades?.[u.id], 0, u.max));
     for (const w of X.weapons)
-      d.weaponMods[w.id] = Math.floor(num(s.weaponMods?.[w.id], 0, 3));
+      d.weaponMods[w.id] = Math.floor(
+        num(s.weaponMods?.[w.id], 0, X.WeaponStats.modMax),
+      );
     for (const k in d.stats) d.stats[k] = num(s.stats?.[k], 0, 1e10);
     d.completed = Array.isArray(s.completed)
       ? [

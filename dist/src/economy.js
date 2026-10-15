@@ -50,7 +50,8 @@ X.Economy = {
   mod(i) {
     const w = X.weapons[i],
       level = X.profile.weaponMods[w.id] || 0;
-    if (!X.profile.owned.includes(i) || level >= 3) return false;
+    if (!X.profile.owned.includes(i) || level >= X.WeaponStats.modMax)
+      return false;
     return this.spend(
       Math.round((400 + w.price * 0.3) * Math.pow(1.8, level)),
       () => (X.profile.weaponMods[w.id] = level + 1),

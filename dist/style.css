@@ -232,6 +232,17 @@ input[type="range"] {
   border-left: 3px solid #6de2ce;
   color: #b3d5d3;
 }
+.weapon-mod-info {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-left: 2px solid #6de2ce;
+  background: #10232b;
+  line-height: 1.5;
+  font-size: 14px;
+}
+.weapon-mod-info strong {
+  color: #efc480;
+}
 .score-summary strong {
   font-size: 30px;
   color: #94e0ce;
