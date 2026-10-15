@@ -81,7 +81,7 @@ X.Game = class {
       progress: 0,
     }));
     this.exit = this.map.point(this.level.exit);
-    this.coreHp = 500;
+    this.coreHp = X.C.coreMaxHp;
     this.defendTime = 0;
     this.shots.clear();
     this.enemies.clear();

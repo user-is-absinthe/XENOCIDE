@@ -647,7 +647,7 @@ X.UI = {
       extra =
         g.level.mode === "defend"
           ? " · передатчик " +
-            Math.ceil(g.coreHp / 5) +
+            Math.ceil((Math.max(0, g.coreHp) / X.C.coreMaxHp) * 100) +
             "% · " +
             (done
               ? "отражайте волны"

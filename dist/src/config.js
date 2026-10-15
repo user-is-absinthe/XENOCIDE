@@ -7,6 +7,7 @@ X.C = {
   maxEnemies: 260,
   maxShots: 1000,
   maxParticles: 700,
+  coreMaxHp: 500,
 };
 X.WeaponStats = {
   modMax: 3,

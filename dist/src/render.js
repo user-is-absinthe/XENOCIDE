@@ -694,6 +694,9 @@ X.Render = {
       g.fill();
       g.globalCompositeOperation = "source-over";
     }
+    // Метка цели поверх существ и освещения, но в мировых координатах.
+    const core = game.objectives[0];
+    if (core && visible(core.x, core.y)) this.defenseHealth(g, game);
     g.restore();
     if (game.damageFlash > 0) {
       g.fillStyle = "rgba(180,33,25," + game.damageFlash * 0.3 + ")";
@@ -701,6 +704,28 @@ X.Render = {
     }
     if (game.state === "play") this.crosshair(g, game);
     if (game.mapOpen) this.minimap(g, game);
+  },
+  defenseHealth(g, game) {
+    if (game.level.mode !== "defend" || !game.objectives[0]) return;
+    const core = game.objectives[0],
+      ratio = Math.max(0, Math.min(1, game.coreHp / X.C.coreMaxHp)),
+      color = ratio > 0.5 ? "#70d0b0" : ratio > 0.25 ? "#efb45c" : "#f16f68";
+    g.save();
+    g.fillStyle = "#07131df0";
+    g.fillRect(core.x - 76, core.y - 86, 152, 36);
+    g.font = "bold 11px Segoe UI";
+    g.textAlign = "center";
+    g.fillStyle = "#e4f7ed";
+    g.fillText(
+      "ПЕРЕДАТЧИК · " + Math.ceil(ratio * 100) + "%",
+      core.x,
+      core.y - 72,
+    );
+    g.fillStyle = "#293b44";
+    g.fillRect(core.x - 68, core.y - 64, 136, 8);
+    g.fillStyle = color;
+    g.fillRect(core.x - 68, core.y - 64, 136 * ratio, 8);
+    g.restore();
   },
   backdrop(g) {
     g.strokeStyle = "#2b424944";
