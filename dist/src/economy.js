@@ -20,6 +20,7 @@ X.Economy = {
     const w = X.weapons[i];
     if (
       !w ||
+      w.debugOnly ||
       X.profile.owned.includes(i) ||
       X.profile.unlocked < this.unlockAt[i]
     )
@@ -50,11 +51,25 @@ X.Economy = {
   mod(i) {
     const w = X.weapons[i],
       level = X.profile.weaponMods[w.id] || 0;
-    if (!X.profile.owned.includes(i) || level >= X.WeaponStats.modMax)
+    if (
+      !X.profile.owned.includes(i) ||
+      w.debugOnly ||
+      level >= X.WeaponStats.modMax
+    )
       return false;
     return this.spend(
       Math.round((400 + w.price * 0.3) * Math.pow(1.8, level)),
       () => (X.profile.weaponMods[w.id] = level + 1),
+    );
+  },
+  tune(i) {
+    const w = X.weapons[i];
+    if (!w || w.debugOnly || !X.profile.owned.includes(i)) return false;
+    const level = X.profile.weaponTuning[w.id] || 0;
+    if (level >= X.WeaponStats.branch(w).max) return false;
+    return this.spend(
+      Math.round((450 + w.price * 0.25) * Math.pow(1.8, level)),
+      () => (X.profile.weaponTuning[w.id] = level + 1),
     );
   },
 };

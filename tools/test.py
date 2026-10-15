@@ -1,8 +1,11 @@
 """Статические проверки автономной поставки; браузерные — browser_test.py."""
 from pathlib import Path
-import subprocess, re
+import subprocess, re, json
 root = Path(__file__).resolve().parent.parent
 files = list((root / 'src').glob('*.js'))
+version = re.search(r'X.version = "([^"]+)"', (root/'src'/'config.js').read_text(encoding='utf-8')).group(1)
+assert json.loads((root/'package.json').read_text())['version'] == version
+assert json.loads((root/'package-lock.json').read_text())['version'] == version
 for file in files:
     result = subprocess.run(['node', '--check', str(file)], capture_output=True, text=True)
     assert result.returncode == 0, result.stderr

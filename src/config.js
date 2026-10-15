@@ -1,5 +1,6 @@
 "use strict";
 window.X = {};
+X.version = "1.1.0";
 X.C = {
   tile: 48,
   width: 1152,
@@ -8,6 +9,25 @@ X.C = {
   maxShots: 1000,
   maxParticles: 700,
   coreMaxHp: 500,
+  coreRepairRate: 30,
+};
+X.PlayerStats = {
+  dashCooldown: 2.4,
+  dashCapacity(u) {
+    return 1 + (u.dashCharges || 0);
+  },
+  stamina(u) {
+    return 100 + 25 * (u.stamina || 0);
+  },
+  staminaRegen(u) {
+    return 23 + 3 * (u.stamina || 0);
+  },
+  sprint(u) {
+    return 1.6 * (1 + 0.075 * (u.sprint || 0));
+  },
+  waveHeal(u) {
+    return 0.04 * (u.regeneration || 0);
+  },
 };
 X.WeaponStats = {
   modMax: 3,
@@ -15,6 +35,37 @@ X.WeaponStats = {
   powerDamage: 0.1,
   damage(w, mod, power) {
     return w.damage * (1 + this.powerDamage * power + this.modDamage * mod);
+  },
+  branches: {
+    rate: { name: "Ускоритель огня", step: 0.08, max: 3 },
+    blade: { name: "Удлинитель дуги", step: 0.15, max: 3 },
+    flame: { name: "Широкая струя", step: 0.15, cone: 0.12, max: 3 },
+    plasma: { name: "Разгон плазмы", step: 0.15, max: 3 },
+    grenade: { name: "Объёмный заряд", step: 0.12, max: 3 },
+    rail: { name: "Быстрая зарядка", step: 0.12, max: 3 },
+    tesla: { name: "Разветвитель", step: 1, max: 3 },
+  },
+  branch(w) {
+    return this.branches[w.kind] || this.branches.rate;
+  },
+  charge(w, level) {
+    return (
+      (w.charge || 0) *
+      (1 - (w.kind === "rail" ? this.branch(w).step * level : 0))
+    );
+  },
+  tuned(w, level) {
+    const b = this.branch(w),
+      n = Math.max(0, Math.min(b.max, level || 0)),
+      t = { ...w };
+    if (b === this.branches.rate) t.rate *= 1 - b.step * n;
+    if (w.kind === "blade" || w.kind === "flame") t.range *= 1 + b.step * n;
+    if (w.kind === "flame") t.spread *= 1 + b.cone * n;
+    if (w.kind === "plasma") t.speed *= 1 + b.step * n;
+    if (w.kind === "grenade") t.blast *= 1 + b.step * n;
+    if (w.kind === "rail") t.charge = this.charge(w, n);
+    if (w.kind === "tesla") t.links = 5 + n;
+    return t;
   },
 };
 X.difficulties = [
@@ -310,9 +361,9 @@ X.weapons = [
     price: 4100,
     color: "#9edaff",
     recoil: 8,
-    desc: "Заряд 0,65 с; пробивает до четырнадцати врагов.",
+    desc: "При полном заряде пробивает стены и до четырнадцати врагов.",
     strengths:
-      "Огромный урон и пробитие до четырнадцати целей. Уничтожает плотные линии врагов.",
+      "Огромный урон, пробитие стен и до четырнадцати целей после полного заряда. Уничтожает плотные линии врагов.",
     weaknesses:
       "Перед выстрелом требуется заряд. Всего четыре выстрела в магазине и долгая перезарядка.",
   },
@@ -364,6 +415,22 @@ X.weapons = [
       "Три ракеты в магазине, медленные залпы и перезарядка. Дорогие взрывчатые заряды.",
   },
 ];
+X.debugWeapon = {
+  ...X.weapons[12],
+  id: "barrage",
+  name: "Ракетный шторм «Полигон»",
+  debugOnly: true,
+  rate: 0.065,
+  ammo: null,
+  mag: 0,
+  reload: 0,
+  price: 0,
+  recoil: 3,
+  desc: "Экспериментальная ракетница: темп ПП, бесконечные ракеты, без перезарядки. Только код BARRAGE на полигоне.",
+  strengths: "Непрерывный поток тяжёлых ракет без затрат боеприпасов.",
+  weaknesses:
+    "Только для испытаний на полигоне. Недоступна в кампании и таблицах рекордов.",
+};
 X.enemies = [
   {
     id: "drone",
@@ -553,6 +620,34 @@ X.enemies = [
   },
 ];
 X.upgrades = [
+  {
+    id: "dashCharges",
+    name: "Каскад рывков",
+    desc: "+1 заряд рывка, до 5. Заряды восстанавливаются по одному за 2,4 с; каждый рывок — отдельное нажатие.",
+    max: 4,
+    price: 900,
+  },
+  {
+    id: "sprint",
+    name: "Форсаж спринта",
+    desc: "+7,5% базовой скорости бега за ступень при удержании Shift. До +37,5%.",
+    max: 5,
+    price: 600,
+  },
+  {
+    id: "stamina",
+    name: "Энергоконтур",
+    desc: "+25 выносливости и +3 ед./с восстановления за ступень. До 225 и 38 ед./с.",
+    max: 5,
+    price: 550,
+  },
+  {
+    id: "regeneration",
+    name: "Волновая регенерация",
+    desc: "Лечит 4% максимального здоровья за ступень после полной зачистки волны. До 20%. Не воскрешает.",
+    max: 5,
+    price: 950,
+  },
   {
     id: "health",
     name: "Биокаркас",

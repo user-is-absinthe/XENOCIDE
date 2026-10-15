@@ -20,10 +20,17 @@ X.Save = {
         energy: 0,
         explosive: 0,
       },
-      upgrades: { health: 0, armor: 0, speed: 0, reload: 0, power: 0 },
+      upgrades: Object.fromEntries(X.upgrades.map((u) => [u.id, 0])),
       weaponMods: {},
+      weaponTuning: {},
       stats: { kills: 0, deaths: 0, shots: 0, time: 0, medals: 0 },
-      endless: { unlocked: false, stage: 21, best: 20, seed: 12345 },
+      endless: {
+        unlocked: false,
+        manualUnlock: false,
+        stage: 21,
+        best: 20,
+        seed: 12345,
+      },
       settings: {
         quality: 1,
         lights: true,
@@ -72,7 +79,11 @@ X.Save = {
         0,
         1,
         ...s.owned.filter(
-          (n) => Number.isInteger(n) && n >= 0 && n < X.weapons.length,
+          (n) =>
+            Number.isInteger(n) &&
+            n >= 0 &&
+            n < X.weapons.length &&
+            !X.weapons[n].debugOnly,
         ),
       ]),
     ];
@@ -80,10 +91,15 @@ X.Save = {
       d.ammo[a] = Math.floor(num(s.ammo?.[a], 0, 99999, d.ammo[a]));
     for (const u of X.upgrades)
       d.upgrades[u.id] = Math.floor(num(s.upgrades?.[u.id], 0, u.max));
-    for (const w of X.weapons)
+    for (const w of X.weapons) {
+      if (w.debugOnly) continue;
       d.weaponMods[w.id] = Math.floor(
         num(s.weaponMods?.[w.id], 0, X.WeaponStats.modMax),
       );
+      d.weaponTuning[w.id] = Math.floor(
+        num(s.weaponTuning?.[w.id], 0, X.WeaponStats.branch(w).max),
+      );
+    }
     for (const k in d.stats) d.stats[k] = num(s.stats?.[k], 0, 1e10);
     d.completed = Array.isArray(s.completed)
       ? [
@@ -92,7 +108,8 @@ X.Save = {
           ),
         ]
       : [];
-    d.endless.unlocked = d.completed.includes(20);
+    d.endless.manualUnlock = s.endless?.manualUnlock === true;
+    d.endless.unlocked = d.completed.includes(20) || d.endless.manualUnlock;
     d.endless.stage = Math.floor(num(s.endless?.stage, 21, 1e6, 21));
     d.endless.best = Math.floor(num(s.endless?.best, 20, 1e6, 20));
     d.endless.seed = Math.floor(num(s.endless?.seed, 1, 4294967295, 12345));
@@ -268,7 +285,34 @@ X.Save = {
       !["shots", "damage"].every((k) => finite(c.stats[k]) && c.stats[k] >= 0)
     )
       throw Error("checkpoint stats");
-    return JSON.parse(JSON.stringify(c));
+    const clean = JSON.parse(JSON.stringify(c)),
+      maxStamina = X.PlayerStats.stamina(p.upgrades),
+      maxDashCharges = X.PlayerStats.dashCapacity(p.upgrades);
+    clean.player.maxStamina = maxStamina;
+    clean.player.stamina = this.number(
+      c.player.stamina,
+      0,
+      maxStamina,
+      maxStamina,
+    );
+    clean.player.maxDashCharges = maxDashCharges;
+    clean.player.dashCharges = Math.floor(
+      this.number(
+        c.player.dashCharges,
+        0,
+        maxDashCharges,
+        c.player.dash > 0 ? 0 : maxDashCharges,
+      ),
+    );
+    clean.player.dash = this.number(
+      c.player.dash,
+      0,
+      X.PlayerStats.dashCooldown,
+    );
+    clean.rewardedWave = Math.floor(
+      this.number(c.rewardedWave, 0, c.wave, Math.max(0, c.wave - 1)),
+    );
+    return clean;
   },
   load() {
     try {

@@ -54,7 +54,9 @@ Object.assign(X.Game.prototype, {
     return { mag, total, text: mag + "/" + total };
   },
   fire(alt) {
-    let w = X.weapons[this.weapon],
+    const base = X.weapons[this.weapon];
+    if (base.debugOnly && !X.Debug.active) return;
+    let w = X.WeaponStats.tuned(base, X.profile.weaponTuning[base.id] || 0),
       p = this.player,
       cost = (alt ? 2 : 1) * (w.burst || 1);
     if (w.ammo && X.Debug.enabled("noReload") && this.mags[this.weapon] < cost)
@@ -129,7 +131,7 @@ Object.assign(X.Game.prototype, {
       let x = p.x,
         y = p.y,
         hit = new Set();
-      for (let n = 0; n < (alt ? 7 : 5); n++) {
+      for (let n = 0; n < w.links + (alt ? 2 : 0); n++) {
         let target = null,
           best = n ? 220 : w.range;
         this.hash.query(x, y, best, (e) => {
@@ -184,6 +186,7 @@ Object.assign(X.Game.prototype, {
                 )
               : w.range,
           damage: damage / (w.kind === "flame" ? count : 1),
+          wallPierce: w.kind === "rail" && this.charge >= w.charge,
           radius: w.kind === "plasma" ? 7 : w.kind === "flame" ? 10 : 3,
         },
         false,
@@ -213,6 +216,7 @@ Object.assign(X.Game.prototype, {
       blast: w.blast || 0,
       range: w.range,
       bounces: 0,
+      wallPierce: !!w.wallPierce,
     });
     s.hit.clear();
   },
@@ -246,7 +250,12 @@ Object.assign(X.Game.prototype, {
             oy = s.y;
           s.x += (s.vx * dt) / steps;
           s.y += (s.vy * dt) / steps;
-          if (this.map.blocked(s.x, s.y)) {
+          const inside =
+            s.x >= 0 &&
+            s.y >= 0 &&
+            s.x < this.map.w * X.C.tile &&
+            s.y < this.map.h * X.C.tile;
+          if (!inside || (this.map.blocked(s.x, s.y) && !s.wallPierce)) {
             if (s.kind === "grenade" && s.bounces < 4) {
               if (this.map.blocked(s.x, oy)) s.vx *= -0.7;
               if (this.map.blocked(ox, s.y)) s.vy *= -0.7;

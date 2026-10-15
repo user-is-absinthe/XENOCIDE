@@ -100,6 +100,16 @@ button:disabled {
   color: #e2eee9;
   text-shadow: 3px 3px #3c5b60;
 }
+.game-version {
+  position: fixed;
+  right: 22px;
+  bottom: 10px;
+  color: #7da7b066;
+  font-size: clamp(30px, 4vw, 56px);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
 h1,
 h2,
 h3,
@@ -232,7 +242,8 @@ input[type="range"] {
   border-left: 3px solid #6de2ce;
   color: #b3d5d3;
 }
-.weapon-mod-info {
+.weapon-mod-info,
+.weapon-tuning-info {
   margin: 12px 0;
   padding: 10px 12px;
   border-left: 2px solid #6de2ce;
@@ -240,7 +251,11 @@ input[type="range"] {
   line-height: 1.5;
   font-size: 14px;
 }
-.weapon-mod-info strong {
+.weapon-tuning-info {
+  border-left-color: #8ab7f0;
+}
+.weapon-mod-info strong,
+.weapon-tuning-info strong {
   color: #efc480;
 }
 .score-summary strong {

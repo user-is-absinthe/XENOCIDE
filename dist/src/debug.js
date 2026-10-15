@@ -13,6 +13,7 @@ X.Debug = {
     X.profile.unlocked = 20;
     this.flags = { ammo: false, noReload: false, god: false };
     this.active = true;
+    X.weapons.push(X.debugWeapon);
     X.game.state = "menu";
   },
   leave() {
@@ -20,6 +21,9 @@ X.Debug = {
     X.profile = this.original;
     this.original = null;
     this.active = false;
+    X.weapons = X.weapons.filter((w) => !w.debugOnly);
+    X.game.weapon = 1;
+    if (X.game.mags) X.game.mags.length = X.weapons.length;
     this.flags = { ammo: false, noReload: false, god: false };
     X.game.keys.clear();
     X.game.mouse.left = X.game.mouse.right = false;
@@ -47,7 +51,12 @@ X.Debug = {
           GOD: "Бессмертие",
         }[code] + (this.flags[flag] ? ": ВКЛ" : ": ВЫКЛ");
     } else if (code === "ARSENAL") {
-      X.profile.owned = X.weapons.map((w, i) => i);
+      X.profile.owned = [
+        ...new Set([
+          ...X.profile.owned,
+          ...X.weapons.map((w, i) => i).filter((i) => !X.weapons[i].debugOnly),
+        ]),
+      ];
       for (const a in X.ammo)
         X.profile.ammo[a] = Math.max(X.profile.ammo[a], X.ammo[a].pack * 10);
       if (g.player && ["play", "pause"].includes(g.state)) {
@@ -57,8 +66,18 @@ X.Debug = {
         g.reload = 0;
       }
       message = "Весь арсенал выдан";
+    } else if (code === "BARRAGE") {
+      const index = X.weapons.findIndex((w) => w.debugOnly);
+      if (!X.profile.owned.includes(index)) X.profile.owned.push(index);
+      if (g.player && ["play", "pause"].includes(g.state)) {
+        g.mags[index] = 0;
+        g.switchWeapon(index);
+      }
+      message = "Ракетный шторм выдан · бесконечные ракеты без перезарядки";
     } else {
-      X.UI.toast("Неизвестный код. CREDITS / AMMO / NORELOAD / GOD / ARSENAL");
+      X.UI.toast(
+        "Неизвестный код. CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE",
+      );
       return false;
     }
     X.UI.toast(message);

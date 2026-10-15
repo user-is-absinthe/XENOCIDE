@@ -133,7 +133,9 @@ X.UI = {
         ) +
         this.button("shop", "АРСЕНАЛ И УЛУЧШЕНИЯ", false, !!p.checkpoint) +
         this.button("settings", "НАСТРОЙКИ И УПРАВЛЕНИЕ") +
-        "</div></div><footer>OFFLINE / ОРИГИНАЛЬНАЯ ГРАФИКА И ЗВУК / ПРОТОКОЛ 1.0</footer>" +
+        '</div></div><footer>OFFLINE / ОРИГИНАЛЬНАЯ ГРАФИКА И ЗВУК</footer><div class="game-version">v' +
+        X.version +
+        "</div>" +
         (X.Save.warning ? '<p class="warn">' + X.Save.warning + "</p>" : ""),
       "menu",
     );
@@ -271,6 +273,57 @@ X.UI = {
       "</span></div>"
     );
   },
+  weaponTuningInfo(w, level) {
+    const stats = X.WeaponStats,
+      branch = stats.branch(w),
+      maxed = level >= branch.max,
+      format = (n) => n.toLocaleString("ru-RU", { maximumFractionDigits: 3 }),
+      value = (n) => {
+        const t = stats.tuned(w, n);
+        if (w.kind === "blade") return format(t.range) + " ед. дальности";
+        if (w.kind === "flame")
+          return (
+            format(t.range) +
+            " ед. / " +
+            format((t.spread * 180) / Math.PI) +
+            "° конуса"
+          );
+        if (w.kind === "plasma") return format(t.speed) + " ед./с";
+        if (w.kind === "grenade") return format(t.blast) + " ед. радиуса";
+        if (w.kind === "rail") return format(t.charge) + " с заряда";
+        if (w.kind === "tesla")
+          return t.links + " целей (ПКМ " + (t.links + 2) + ")";
+        return format(t.rate) + " с между выстрелами";
+      },
+      effect =
+        w.kind === "flame"
+          ? "+15% дальности и +12% угла за ступень."
+          : w.kind === "blade"
+            ? "+15% дальности за ступень."
+            : w.kind === "plasma"
+              ? "+15% скорости снаряда за ступень."
+              : w.kind === "grenade"
+                ? "+12% радиуса взрыва за ступень."
+                : w.kind === "rail"
+                  ? "−12% базового времени заряда за ступень."
+                  : w.kind === "tesla"
+                    ? "+1 цель в цепи за ступень."
+                    : "−8% базовой паузы между выстрелами за ступень.";
+    return (
+      '<div class="weapon-tuning-info"><b>' +
+      branch.name +
+      " · " +
+      level +
+      "/" +
+      branch.max +
+      "</b><br>" +
+      effect +
+      "<br><strong>" +
+      value(level) +
+      (maxed ? " · максимум" : " → " + value(level + 1)) +
+      "</strong></div>"
+    );
+  },
   shop() {
     if (X.profile.checkpoint) {
       this.toast("Магазин доступен между миссиями");
@@ -292,11 +345,14 @@ X.UI = {
       B = (a, t, d) => this.button(a, t, false, d);
     const weapons = X.weapons
       .map((w, i) => {
+        if (w.debugOnly) return "";
         const own = p.owned.includes(i),
           gate = X.Economy.unlockAt[i],
           locked = p.unlocked < gate,
           mod = p.weaponMods[w.id] || 0,
-          cost = Math.round((400 + w.price * 0.3) * Math.pow(1.8, mod));
+          cost = Math.round((400 + w.price * 0.3) * Math.pow(1.8, mod)),
+          tune = p.weaponTuning[w.id] || 0,
+          tuneCost = Math.round((450 + w.price * 0.25) * Math.pow(1.8, tune));
         if (locked && !own) return "";
         return (
           '<article class="card weapon-card" data-weapon="' +
@@ -330,6 +386,21 @@ X.UI = {
                       " · ₡ " +
                       cost,
                 mod >= X.WeaponStats.modMax || p.credits < cost,
+              )
+            : "") +
+          (own
+            ? this.weaponTuningInfo(w, tune) +
+              B(
+                "tune:" + i,
+                tune >= X.WeaponStats.branch(w).max
+                  ? "ВТОРАЯ ВЕТКА: МАКСИМУМ"
+                  : "РАЗВИТЬ ДО " +
+                      (tune + 1) +
+                      "/" +
+                      X.WeaponStats.branch(w).max +
+                      " · ₡ " +
+                      tuneCost,
+                tune >= X.WeaponStats.branch(w).max || p.credits < tuneCost,
               )
             : "") +
           "</article>"
@@ -450,10 +521,11 @@ X.UI = {
         '</span></h2><p>Все 20 карт доступны. Читы и прогресс полигона не записываются в сохранение кампании. Повторный код переключает режим.</p><div class="row">' +
         this.button("cheat:CREDITS", "CREDITS · +10 000 ₡") +
         this.button("cheat:ARSENAL", "ARSENAL · ВЕСЬ АРСЕНАЛ") +
+        this.button("cheat:BARRAGE", "BARRAGE · РАКЕТНЫЙ ШТОРМ") +
         flag("AMMO", "ammo", "Бесконечные патроны") +
         flag("NORELOAD", "noReload", "Без перезарядки") +
         flag("GOD", "god", "Бессмертие") +
-        '</div><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="CREDITS / AMMO / NORELOAD / GOD / ARSENAL">' +
+        '</div><p class="small">BARRAGE выдаёт экспериментальную ракетницу с темпом ПП, без патронов и перезарядки. Выберите её колесом после высадки.</p><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE">' +
         this.button("runCheat", "ВВЕСТИ") +
         '</div><div class="level-grid">' +
         X.levels
@@ -616,6 +688,14 @@ X.UI = {
           )
           .join("") +
         this.button("fullscreen", "ПОЛНЫЙ ЭКРАН") +
+        this.button(
+          "unlockEndless",
+          X.profile.endless.unlocked
+            ? "БЕСКОНЕЧНЫЙ РЕЖИМ УЖЕ ОТКРЫТ"
+            : "РАЗБЛОКИРОВАТЬ БЕСКОНЕЧНЫЙ РЕЖИМ",
+          false,
+          X.profile.endless.unlocked,
+        ) +
         "</div><div><h3>Переназначение клавиш</h3>" +
         Object.keys(names)
           .map(
@@ -650,7 +730,11 @@ X.UI = {
             Math.ceil((Math.max(0, g.coreHp) / X.C.coreMaxHp) * 100) +
             "% · " +
             (done
-              ? "отражайте волны"
+              ? g.repairing
+                ? "ремонт +" + X.C.coreRepairRate + " HP/с · огонь остановлен"
+                : "отражайте волны · " +
+                  X.profile.settings.keys.interact.replace("Key", "") +
+                  " рядом: ремонт"
               : "активируйте " +
                 X.profile.settings.keys.interact.replace("Key", ""))
           : g.level.mode === "timed"
@@ -695,9 +779,16 @@ X.UI = {
       '%"></i></div><span class="hint">БРОНЯ ' +
       Math.ceil(p.armor) +
       ' · ВЫНОСЛИВОСТЬ</span><div class="bar stamina"><i style="width:' +
-      p.stamina +
-      '%"></i></div><span class="hint">РЫВОК ' +
-      (p.dash > 0 ? p.dash.toFixed(1) + " с" : "ГОТОВ") +
+      (p.stamina / p.maxStamina) * 100 +
+      '%"></i></div><span class="hint">' +
+      Math.ceil(p.stamina) +
+      "/" +
+      p.maxStamina +
+      " · РЫВКИ " +
+      p.dashCharges +
+      "/" +
+      p.maxDashCharges +
+      (p.dash > 0 ? " · +1 через " + p.dash.toFixed(1) + " с" : " · ГОТОВЫ") +
       " · УБИЙСТВА " +
       g.kills +
       '</span></div><div class="weapon"><div class="hint">' +
@@ -714,7 +805,16 @@ X.UI = {
       (g.reload > 0
         ? "ПЕРЕЗАРЯДКА " + g.reload.toFixed(1)
         : g.charge > 0
-          ? "ЗАРЯД " + Math.round((g.charge / 0.65) * 100) + "%"
+          ? "ЗАРЯД " +
+            Math.min(
+              100,
+              Math.round(
+                (g.charge /
+                  X.WeaponStats.charge(w, X.profile.weaponTuning[w.id] || 0)) *
+                  100,
+              ),
+            ) +
+            "%"
           : X.profile.settings.keys.reload.replace("Key", "") +
             " · перезарядка / колесо · оружие") +
       '</div><div class="money">₡ ' +
@@ -805,11 +905,14 @@ X.UI = {
         break;
       case "begin": {
         const records = p.records,
+          manualUnlock = p.endless.manualUnlock,
           settings = p.settings,
           difficulty = p.difficulty;
         X.profile = X.Save.defaults();
         X.profile.settings = settings;
         X.profile.records = records;
+        X.profile.endless.manualUnlock = manualUnlock;
+        X.profile.endless.unlocked = !!manualUnlock;
         X.profile.difficulty = difficulty;
         X.Save.write(X.profile);
         this.next = 1;
@@ -884,6 +987,16 @@ X.UI = {
       case "mod":
         X.Economy.mod(+v);
         this.shop();
+        break;
+      case "tune":
+        X.Economy.tune(+v);
+        this.shop();
+        break;
+      case "unlockEndless":
+        p.endless.manualUnlock = p.endless.unlocked = true;
+        X.Save.write(p);
+        this.settings();
+        this.toast("Бесконечный режим открыт. Доступен в главном меню.");
         break;
       case "key":
         this.pendingKey = v;

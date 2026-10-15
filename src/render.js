@@ -460,6 +460,21 @@ X.Render = {
             o.x,
             o.y - 38,
           );
+        } else if (
+          game.level.mode === "defend" &&
+          o === game.objectives[0] &&
+          game.coreHp < X.C.coreMaxHp &&
+          game.coreHp > 0
+        ) {
+          g.fillStyle = game.repairing ? "#8de7b4" : "#f1c879";
+          g.fillText(
+            X.profile.settings.keys.interact.replace("Key", "") +
+              (game.repairing
+                ? " · РЕМОНТ +" + X.C.coreRepairRate + " HP/с"
+                : " · УДЕРЖИВАЙТЕ: РЕМОНТ"),
+            o.x,
+            o.y - 38,
+          );
         }
       }
     }

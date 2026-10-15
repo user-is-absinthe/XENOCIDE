@@ -44,12 +44,19 @@ X.Game = class {
       maxHp: 100 + 25 * u.health,
       armor: 20 * u.armor,
       maxArmor: 20 * u.armor,
-      stamina: 100,
+      stamina: X.PlayerStats.stamina(u),
+      maxStamina: X.PlayerStats.stamina(u),
+      dashCharges: X.PlayerStats.dashCapacity(u),
+      maxDashCharges: X.PlayerStats.dashCapacity(u),
       dash: 0,
       invuln: 1,
       angle: 0,
     };
-    this.weapon = 1;
+    const experimental = X.weapons.findIndex((w) => w.debugOnly);
+    this.weapon =
+      X.Debug.active && X.profile.owned.includes(experimental)
+        ? experimental
+        : 1;
     this.ammo = { ...X.profile.ammo };
     this.mags = X.weapons.map((w, i) => {
       if (!w.ammo || !X.profile.owned.includes(i)) return 0;
@@ -67,6 +74,9 @@ X.Game = class {
     this.kills = 0;
     this.earned = 0;
     this.wave = 0;
+    this.rewardedWave = 0;
+    this.dashHeld = false;
+    this.repairing = false;
     this.waveTimer = 3;
     this.spawnQueue = [];
     this.spawnTimer = 0;
@@ -144,6 +154,22 @@ X.Game = class {
         }
         return;
       }
+    const core = this.objectives[0];
+    if (
+      this.level.mode === "defend" &&
+      core?.done &&
+      this.coreHp > 0 &&
+      this.coreHp < X.C.coreMaxHp &&
+      Math.hypot(core.x - p.x, core.y - p.y) < 95 &&
+      this.map.line(p.x, p.y, core.x, core.y)
+    ) {
+      this.coreHp = Math.min(
+        X.C.coreMaxHp,
+        this.coreHp + X.C.coreRepairRate * dt,
+      );
+      this.repairing = true;
+      return;
+    }
     if (this.ready() && Math.hypot(this.exit.x - p.x, this.exit.y - p.y) < 95)
       this.finish(true);
   }
@@ -155,6 +181,31 @@ X.Game = class {
       this.objectives.every((o) => o.done) &&
       (this.level.mode !== "defend" || this.coreHp > 0)
     );
+  }
+  completeWave() {
+    if (
+      this.state !== "play" ||
+      this.wave <= this.rewardedWave ||
+      this.wave <= 0 ||
+      this.spawnQueue.length ||
+      this.activeEnemies()
+    )
+      return;
+    this.rewardedWave = this.wave;
+    if (this.player.hp <= 0) return;
+    const healed = Math.min(
+      this.player.maxHp - this.player.hp,
+      this.player.maxHp * X.PlayerStats.waveHeal(X.profile.upgrades),
+    );
+    if (healed > 0) {
+      this.player.hp += healed;
+      this.fx(this.player.x, this.player.y, "#80e5a9", 12, 80);
+      X.UI.toast(
+        "Волна зачищена · регенерация +" + Math.ceil(healed) + " HP",
+        2200,
+      );
+      X.Audio.play("pickup");
+    }
   }
   newWave() {
     this.wave++;
@@ -216,7 +267,9 @@ X.Game = class {
     let sprint = this.keys.has(k.sprint) && p.stamina > 0 && length;
     this.moving = !!length;
     let speed =
-      185 * (1 + 0.06 * X.profile.upgrades.speed) * (sprint ? 1.6 : 1);
+      185 *
+      (1 + 0.06 * X.profile.upgrades.speed) *
+      (sprint ? X.PlayerStats.sprint(X.profile.upgrades) : 1);
     if (
       X.weapons[this.weapon].kind === "machine" &&
       (this.mouse.left || this.mouse.right)
@@ -224,22 +277,37 @@ X.Game = class {
       speed *= 0.65;
     p.stamina = Math.max(
       0,
-      Math.min(100, p.stamina + (sprint ? -32 : 23) * dt),
+      Math.min(
+        p.maxStamina,
+        p.stamina +
+          (sprint ? -32 : X.PlayerStats.staminaRegen(X.profile.upgrades)) * dt,
+      ),
     );
-    p.dash = Math.max(0, p.dash - dt);
+    if (p.dashCharges < p.maxDashCharges) {
+      p.dash = Math.max(0, p.dash - dt);
+      if (p.dash <= 0) {
+        p.dashCharges++;
+        p.dash =
+          p.dashCharges < p.maxDashCharges ? X.PlayerStats.dashCooldown : 0;
+      }
+    }
     p.invuln = Math.max(0, p.invuln - dt);
-    if (this.keys.has(k.dash) && p.dash <= 0) {
+    const dashPressed = this.keys.has(k.dash);
+    if (dashPressed && !this.dashHeld && p.dashCharges > 0) {
       let a = length ? Math.atan2(dy, dx) : p.angle;
       for (let i = 0; i < 12; i++)
         this.map.move(p, Math.cos(a) * 12, Math.sin(a) * 12);
-      p.dash = 2.4;
+      p.dashCharges--;
+      if (p.dash <= 0) p.dash = X.PlayerStats.dashCooldown;
       p.invuln = 0.32;
       this.fx(p.x, p.y, "#78d8dc", 12, 100);
       X.Audio.play("dash");
     }
+    this.dashHeld = dashPressed;
     this.map.move(p, dx * speed * dt, dy * speed * dt);
     this.camera.x = Math.max(0, Math.min(this.map.w * 48 - 1152, p.x - 576));
     this.camera.y = Math.max(0, Math.min(this.map.h * 48 - 648, p.y - 324));
+    this.repairing = false;
     if (this.keys.has(k.interact)) this.interact(dt);
     if (this.state !== "play") return;
     if (this.reload > 0) {
@@ -248,14 +316,22 @@ X.Game = class {
         this.reload = 0;
         this.refillMagazine();
       }
-    } else if ((this.mouse.left || this.mouse.right) && this.cool <= 0) {
+    } else if (
+      !this.repairing &&
+      (this.mouse.left || this.mouse.right) &&
+      this.cool <= 0
+    ) {
       let w = X.weapons[this.weapon];
       this.charge += dt;
-      if (!w.charge || this.charge >= w.charge) {
+      if (
+        !w.charge ||
+        this.charge >=
+          X.WeaponStats.charge(w, X.profile.weaponTuning[w.id] || 0)
+      ) {
         this.fire(this.mouse.right);
         this.charge = 0;
       }
-    } else if (!this.mouse.left && !this.mouse.right) {
+    } else if (this.repairing || (!this.mouse.left && !this.mouse.right)) {
       this.charge = 0;
       this.spin = Math.max(0, this.spin - dt * 2);
     }
@@ -264,6 +340,7 @@ X.Game = class {
     this.waveTimer -= dt;
     const waveCleared =
       this.wave > 0 && !this.spawnQueue.length && !this.activeEnemies();
+    if (waveCleared) this.completeWave();
     if (this.wave < this.level.waves && (this.waveTimer <= 0 || waveCleared))
       this.newWave();
     this.spawnTimer -= dt;
@@ -300,8 +377,10 @@ X.Game = class {
     this.hash.clear();
     for (const e of this.enemies.items) if (e.active) this.hash.insert(e);
     for (const e of this.enemies.items) if (e.active) this.enemyStep(e, dt);
+    if (this.state !== "play") return;
     this.projectileStep(dt);
     this.lootStep();
+    this.completeWave();
     if (this.level.mode === "defend" && this.objectives.every((o) => o.done))
       this.defendTime += dt;
     for (const [x, y, w, h] of this.level.hazards || [])
@@ -412,6 +491,7 @@ X.Game = class {
       ammo: { ...this.ammo },
       mags: [...this.mags],
       wave: this.wave,
+      rewardedWave: this.rewardedWave,
       waveTimer: this.waveTimer,
       kills: this.kills,
       earned: this.earned,
@@ -442,6 +522,24 @@ X.Game = class {
     ])
       if (c[key] !== undefined) this[key] = c[key];
     this.player = { ...c.player, r: 14, invuln: 2 };
+    this.player.maxStamina = X.PlayerStats.stamina(X.profile.upgrades);
+    this.player.maxDashCharges = X.PlayerStats.dashCapacity(X.profile.upgrades);
+    this.player.dashCharges = Math.floor(
+      X.Save.number(
+        c.player.dashCharges,
+        0,
+        this.player.maxDashCharges,
+        c.player.dash > 0 ? 0 : this.player.maxDashCharges,
+      ),
+    );
+    this.player.stamina = X.Save.number(
+      c.player.stamina,
+      0,
+      this.player.maxStamina,
+    );
+    this.rewardedWave = Math.floor(
+      X.Save.number(c.rewardedWave, 0, c.wave, Math.max(0, c.wave - 1)),
+    );
     this.ammo = { ...c.ammo };
     this.mags = [...c.mags];
     this.objectives = c.objectives.map((o) => ({ ...o }));
@@ -528,6 +626,7 @@ X.Game = class {
       this.checkpoint();
       this.state = "pause";
       this.keys.clear();
+      this.dashHeld = false;
       this.mouse.left = this.mouse.right = false;
       X.UI.pause();
     }
@@ -536,6 +635,7 @@ X.Game = class {
     if (this.state === "pause") {
       this.state = "play";
       this.keys.clear();
+      this.dashHeld = false;
       X.UI.hide();
     }
   }
