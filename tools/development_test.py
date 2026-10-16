@@ -15,7 +15,8 @@ with sync_playwright() as p:
     page.on('request',lambda r:network.append(r.url) if r.url.startswith(('http:','https:')) else None)
     page.goto(url)
     report=page.evaluate((ROOT/'tools'/'development_checks.js').read_text(encoding='utf-8'))
-    assert page.locator('.game-version').inner_text()=='v1.1.0'
+    version=page.evaluate('X.version')
+    assert page.locator('.game-version').inner_text()==page.evaluate("'v'+X.version")
     assert page.locator('.game-version').evaluate('(e)=>parseFloat(getComputedStyle(e).fontSize)>=30')
     page.evaluate("document.getElementById('toast').classList.remove('visible')");page.wait_for_timeout(500)
     page.screenshot(path=str(ART/'menu-v1.1.png'))
@@ -60,6 +61,6 @@ with sync_playwright() as p:
     pg=ctx.new_page();pg.goto(url)
     assert pg.evaluate('X.profile.endless.unlocked&&X.profile.upgrades.dashCharges===4&&X.profile.weaponTuning.rail===3&&X.profile.checkpoint.coreHp===321&&X.profile.checkpoint.player.dashCharges===2&&X.profile.checkpoint.player.maxStamina===225')
     ctx.close()
-    report.update(realUIPurchases=True,fullEdgeRestart=True,version='1.1.0',errors=errors,network=0)
+    report.update(realUIPurchases=True,fullEdgeRestart=True,version=version,errors=errors,network=0)
     (ART/'development-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False))

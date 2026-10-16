@@ -20,11 +20,14 @@ X.Game = class {
     this.marks = [];
   }
   start(number = 1, checkpoint = null) {
+    if (number === 0 && !X.Debug.active) return;
     this.number = number;
     this.level =
-      number <= 20
-        ? X.levels[number - 1]
-        : X.generate(number, X.profile.endless.seed);
+      number === 0
+        ? X.Debug.arena
+        : number <= 20
+          ? X.levels[number - 1]
+          : X.generate(number, X.profile.endless.seed);
     this.map = X.makeMap(this.level);
     this.navSmall = this.map.navigation(14);
     this.navBig = this.map.navigation(34);
@@ -34,6 +37,7 @@ X.Game = class {
     this.difficulty = X.profile.difficulty;
     this.pace = X.profile.settings.pace;
     this.diff = X.difficulties[this.difficulty];
+    X.profile.resumeMode = number > 20 ? "endless" : "campaign";
     this.scoreResult = null;
     const p = this.map.point(this.level.start),
       u = X.profile.upgrades;
@@ -116,6 +120,7 @@ X.Game = class {
       this.map.flow(this.navCore, this.objectives[0].x, this.objectives[0].y);
     this.seedLoot();
     if (checkpoint) this.restore(checkpoint);
+    this.autoReload();
     X.Scoring.start(this);
     X.Render.prepare(this);
     X.UI.hide();
@@ -310,6 +315,7 @@ X.Game = class {
     this.repairing = false;
     if (this.keys.has(k.interact)) this.interact(dt);
     if (this.state !== "play") return;
+    this.autoReload();
     if (this.reload > 0) {
       this.reload -= dt;
       if (this.reload <= 0) {
@@ -318,6 +324,7 @@ X.Game = class {
       }
     } else if (
       !this.repairing &&
+      (!X.weapons[this.weapon].ammo || this.mags[this.weapon] > 0) &&
       (this.mouse.left || this.mouse.right) &&
       this.cool <= 0
     ) {
@@ -506,6 +513,13 @@ X.Game = class {
       bossSpawned: this.bossSpawned,
       seed: this.rng.seed,
       stats: { ...this.stats },
+      weaponState: {
+        cool: this.cool,
+        reload: this.reload,
+        reloadTotal: this.reloadTotal,
+        charge: this.charge,
+        spin: this.spin,
+      },
     };
   }
   restore(c) {
@@ -522,6 +536,13 @@ X.Game = class {
     ])
       if (c[key] !== undefined) this[key] = c[key];
     this.player = { ...c.player, r: 14, invuln: 2 };
+    if (c.weaponState)
+      for (const key of ["cool", "reload", "reloadTotal", "charge", "spin"])
+        this[key] = X.Save.number(
+          c.weaponState[key],
+          0,
+          key === "spin" ? 1 : 10,
+        );
     this.player.maxStamina = X.PlayerStats.stamina(X.profile.upgrades);
     this.player.maxDashCharges = X.PlayerStats.dashCapacity(X.profile.upgrades);
     this.player.dashCharges = Math.floor(

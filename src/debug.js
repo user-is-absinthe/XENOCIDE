@@ -4,6 +4,31 @@ X.Debug = {
   active: false,
   original: null,
   flags: { ammo: false, noReload: false, god: false },
+  arena: {
+    name: "Открытая арена",
+    chapter: "Испытательный зал",
+    theme: 1,
+    w: 56,
+    h: 40,
+    rooms: [[1, 1, 54, 38]],
+    blocks: [],
+    start: [10, 20],
+    exit: [52, 20],
+    spawns: [
+      [3, 3],
+      [52, 3],
+      [52, 36],
+      [3, 36],
+    ],
+    targets: [],
+    resources: [],
+    mode: "clear",
+    waves: 8,
+    interval: 25,
+    types: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    brief:
+      "Открытая арена без внутренних стен. Проверяйте оружие и прокачку. Esc — полигон и читы; ARSENAL выдаёт весь штатный арсенал.",
+  },
   enter() {
     if (this.active) return;
     if (X.game.state === "play") X.game.pause();
@@ -11,6 +36,10 @@ X.Debug = {
     X.profile = X.Save.validate(JSON.parse(JSON.stringify(this.original)));
     X.profile.checkpoint = null;
     X.profile.unlocked = 20;
+    X.profile.credits = 500000;
+    X.profile.upgrades = X.Save.defaults().upgrades;
+    X.profile.weaponMods = {};
+    X.profile.weaponTuning = {};
     this.flags = { ammo: false, noReload: false, god: false };
     this.active = true;
     X.weapons.push(X.debugWeapon);

@@ -8,6 +8,7 @@ Object.assign(X.Game.prototype, {
       this.charge = 0;
       this.spin = 0;
       this.cool = Math.max(0.1, this.cool);
+      this.autoReload();
       X.Audio.play("menu");
     }
   },
@@ -18,6 +19,7 @@ Object.assign(X.Game.prototype, {
   },
   beginReload() {
     const w = X.weapons[this.weapon];
+    if (w.ammo && this.mags[this.weapon] === 0) this.charge = 0;
     if (w.ammo && X.Debug.enabled("noReload")) {
       this.refillMagazine();
       this.reload = 0;
@@ -31,7 +33,15 @@ Object.assign(X.Game.prototype, {
     ) {
       this.reload = w.reload * (1 - 0.09 * X.profile.upgrades.reload);
       this.reloadTotal = this.reload;
+      this.charge = 0;
       X.Audio.play("reload");
+    }
+  },
+  autoReload() {
+    const w = X.weapons[this.weapon];
+    if (w.ammo && this.mags[this.weapon] === 0) {
+      this.charge = 0;
+      this.beginReload();
     }
   },
   refillMagazine() {
@@ -54,11 +64,13 @@ Object.assign(X.Game.prototype, {
     return { mag, total, text: mag + "/" + total };
   },
   fire(alt) {
+    if (this.reload > 0) return;
     const base = X.weapons[this.weapon];
     if (base.debugOnly && !X.Debug.active) return;
     let w = X.WeaponStats.tuned(base, X.profile.weaponTuning[base.id] || 0),
       p = this.player,
       cost = (alt ? 2 : 1) * (w.burst || 1);
+    const wallPierce = w.kind === "rail" && this.charge >= w.charge;
     if (w.ammo && X.Debug.enabled("noReload") && this.mags[this.weapon] < cost)
       this.beginReload();
     if (w.ammo && this.mags[this.weapon] < cost) {
@@ -73,7 +85,10 @@ Object.assign(X.Game.prototype, {
         return;
       }
     }
-    if (w.ammo) this.mags[this.weapon] -= cost;
+    if (w.ammo) {
+      this.mags[this.weapon] -= cost;
+      this.autoReload();
+    }
     this.cool =
       w.rate *
       (alt ? 1.35 : 1) *
@@ -186,7 +201,7 @@ Object.assign(X.Game.prototype, {
                 )
               : w.range,
           damage: damage / (w.kind === "flame" ? count : 1),
-          wallPierce: w.kind === "rail" && this.charge >= w.charge,
+          wallPierce,
           radius: w.kind === "plasma" ? 7 : w.kind === "flame" ? 10 : 3,
         },
         false,

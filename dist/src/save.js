@@ -6,6 +6,7 @@ X.Save = {
   defaults() {
     return {
       version: 1,
+      resumeMode: "campaign",
       level: 1,
       unlocked: 1,
       completed: [],
@@ -73,6 +74,11 @@ X.Save = {
     for (const k of ["level", "unlocked"])
       d[k] = Math.floor(num(s[k], 1, 20, 1));
     d.difficulty = Math.floor(num(s.difficulty, 0, 3, 1));
+    d.resumeMode =
+      s.resumeMode === "endless" ||
+      (s.resumeMode === undefined && s.checkpoint?.number > 20)
+        ? "endless"
+        : "campaign";
     d.credits = Math.floor(num(s.credits, 0, 1e8));
     d.owned = [
       ...new Set([
@@ -312,6 +318,15 @@ X.Save = {
     clean.rewardedWave = Math.floor(
       this.number(c.rewardedWave, 0, c.wave, Math.max(0, c.wave - 1)),
     );
+    clean.weaponState = {};
+    for (const [key, max] of Object.entries({
+      cool: 10,
+      reload: 10,
+      reloadTotal: 10,
+      charge: 5,
+      spin: 1,
+    }))
+      clean.weaponState[key] = this.number(c.weaponState?.[key], 0, max);
     return clean;
   },
   load() {
@@ -343,9 +358,13 @@ X.Save = {
     }
   },
   export(p) {
+    if (X.Debug?.active) return;
     const a = document.createElement("a"),
       url = URL.createObjectURL(
-        new Blob([JSON.stringify(p, null, 2)], { type: "application/json" }),
+        new Blob(
+          [JSON.stringify({ ...p, saveSlots: X.Slots.exportData() }, null, 2)],
+          { type: "application/json" },
+        ),
       );
     a.href = url;
     a.download = "xenocide-save.json";

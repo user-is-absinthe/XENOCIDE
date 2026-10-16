@@ -1,5 +1,6 @@
 "use strict";
 X.profile = X.Save.load();
+X.Slots.load();
 X.UI = {
   overlay: document.getElementById("overlay"),
   hudEl: document.getElementById("hud"),
@@ -120,10 +121,13 @@ X.UI = {
           "continue",
           p.checkpoint
             ? "ПРОДОЛЖИТЬ · КОНТРОЛЬНАЯ ТОЧКА"
-            : "ПРОДОЛЖИТЬ · СЕКТОР " + p.level,
+            : p.resumeMode === "endless" && p.endless.unlocked
+              ? "ПРОДОЛЖИТЬ · ЭКСПЕДИЦИЯ " + p.endless.stage
+              : "ПРОДОЛЖИТЬ · СЕКТОР " + p.level,
         ) +
         this.button("levels", "ВЫБОР МИССИИ") +
         this.button("records", "ТАБЛИЦА ЛИДЕРОВ") +
+        this.button("slots", "СОХРАНЕНИЯ · 3 ЯЧЕЙКИ") +
         this.button("debug", "ПОЛИГОН · УРОВНИ И ЧИТЫ") +
         this.button(
           "endless",
@@ -189,7 +193,12 @@ X.UI = {
   },
   brief(n) {
     this.next = n;
-    const l = n <= 20 ? X.levels[n - 1] : X.generate(n, X.profile.endless.seed);
+    const l =
+      n === 0 && X.Debug.active
+        ? X.Debug.arena
+        : n <= 20
+          ? X.levels[n - 1]
+          : X.generate(n, X.profile.endless.seed);
     this.show(
       '<div class="eyebrow">' +
         l.chapter +
@@ -450,9 +459,19 @@ X.UI = {
       '<div class="row"><h2>Арсенал <span class="money">₡ ' +
         p.credits +
         "</span></h2>" +
-        this.button("shopnext", "К МИССИИ " + (this.next || p.level), true) +
-        this.button("menu", "МЕНЮ") +
-        '</div><p>Покупка оружия включает три магазина. Усиление: +12% урона за уровень. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
+        this.button(
+          X.Debug.active ? "debug" : "shopnext",
+          X.Debug.active
+            ? "ПОЛИГОН · ВЫБРАТЬ КАРТУ"
+            : "К МИССИИ " + (this.next || p.level),
+          true,
+        ) +
+        this.button("menu", X.Debug.active ? "ВЫЙТИ ИЗ ПОЛИГОНА" : "МЕНЮ") +
+        "</div>" +
+        (X.Debug.active
+          ? "<p>Магазин полигона. Прокачка полностью применяется при следующей высадке. Повторное открытие меню её не сбрасывает.</p>"
+          : "") +
+        '<p>Покупка оружия включает три магазина. Усиление: +12% урона за уровень. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
         ammo +
         '</div><div class="rule"></div><h3>Импланты</h3><div class="cards">' +
         upgrades +
@@ -484,6 +503,7 @@ X.UI = {
         '</p><div class="menu">' +
         this.button("resume", "ПРОДОЛЖИТЬ", true) +
         this.button("settings", "НАСТРОЙКИ") +
+        (X.Debug.active ? "" : this.button("slots", "СОХРАНЕНИЯ · 3 ЯЧЕЙКИ")) +
         this.button(
           "toggleMusic",
           X.profile.settings.musicEnabled
@@ -518,15 +538,18 @@ X.UI = {
     this.show(
       '<div class="eyebrow">Режим тестирования</div><h2>Полигон <span class="money">₡ ' +
         X.profile.credits +
-        '</span></h2><p>Все 20 карт доступны. Читы и прогресс полигона не записываются в сохранение кампании. Повторный код переключает режим.</p><div class="row">' +
+        '</span></h2><p>При каждом входе: 500 000 кредитов и нулевая прокачка бойца/обеих веток оружия. Все 20 карт и открытая арена доступны. Читы и прогресс полигона не записываются в сохранение кампании.</p><div class="row">' +
         this.button("cheat:CREDITS", "CREDITS · +10 000 ₡") +
         this.button("cheat:ARSENAL", "ARSENAL · ВЕСЬ АРСЕНАЛ") +
+        this.button("shop", "МАГАЗИН ПОЛИГОНА · ПРОКАЧКА") +
         this.button("cheat:BARRAGE", "BARRAGE · РАКЕТНЫЙ ШТОРМ") +
         flag("AMMO", "ammo", "Бесконечные патроны") +
         flag("NORELOAD", "noReload", "Без перезарядки") +
         flag("GOD", "god", "Бессмертие") +
         '</div><p class="small">BARRAGE выдаёт экспериментальную ракетницу с темпом ПП, без патронов и перезарядки. Выберите её колесом после высадки.</p><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE">' +
         this.button("runCheat", "ВВЕСТИ") +
+        '</div><div class="row">' +
+        this.button("testArena", "ОТКРЫТАЯ АРЕНА · БЕЗ ВНУТРЕННИХ СТЕН", true) +
         '</div><div class="level-grid">' +
         X.levels
           .map((l, i) =>
@@ -707,7 +730,7 @@ X.UI = {
               "</div>",
           )
           .join("") +
-        '<p class="small">ЛКМ — огонь · ПКМ — усиленный режим (двойной расход)<br>Колесо — оружие · 1–9 — слоты · 0 — следующий слот<br>Esc — пауза · потеря фокуса останавливает бой.</p></div></div><div class="rule"></div><div class="row">' +
+        '<p class="small">ЛКМ — огонь · ПКМ — усиленный режим (двойной расход)<br>Колесо — оружие · 1–9 — слоты · 0 — следующий слот<br>Esc — пауза · потеря фокуса останавливает бой.</p></div></div><div class="rule"></div><p class="small">Экспорт JSON включает активный профиль и три ручные ячейки. Импорт полного экспорта заменяет оба; старый одиночный JSON меняет только активный профиль.</p><div class="row">' +
         this.button("export", "ЭКСПОРТ JSON") +
         this.button("import", "ИМПОРТ JSON") +
         this.button("reset", "СБРОСИТЬ ПРОГРЕСС") +
@@ -836,7 +859,19 @@ X.UI = {
       g = X.game;
     if (
       X.Debug.active &&
-      ["new", "begin", "import", "export", "reset", "doreset"].includes(act)
+      [
+        "new",
+        "begin",
+        "import",
+        "export",
+        "reset",
+        "doreset",
+        "slots",
+        "saveSlot",
+        "loadSlot",
+        "doSaveSlot",
+        "doLoadSlot",
+      ].includes(act)
     ) {
       this.toast(
         "Для управления сохранением вернитесь из полигона в главное меню",
@@ -844,6 +879,25 @@ X.UI = {
       return;
     }
     switch (act) {
+      case "slots":
+        X.Slots.show();
+        break;
+      case "slotsBack":
+        g.state === "pause" ? this.pause() : this.menu();
+        break;
+      case "saveSlot":
+        X.Slots.confirm("save", +v);
+        break;
+      case "loadSlot":
+        X.Slots.confirm("load", +v);
+        break;
+      case "doSaveSlot":
+        X.Slots.save(+v);
+        X.Slots.show();
+        break;
+      case "doLoadSlot":
+        X.Slots.restore(+v);
+        break;
       case "records":
         if (X.Debug.active) {
           this.toast("Таблицы рекордов доступны после выхода из полигона");
@@ -881,6 +935,9 @@ X.UI = {
       case "testLevel":
         if (X.Debug.active && Number.isInteger(+v) && +v >= 1 && +v <= 20)
           this.brief(+v);
+        break;
+      case "testArena":
+        if (X.Debug.active) this.brief(0);
         break;
       case "toggleMusic":
       case "toggleMute": {
@@ -921,7 +978,12 @@ X.UI = {
       }
       case "continue":
         if (p.checkpoint) g.start(p.checkpoint.number, p.checkpoint);
-        else this.brief(p.level);
+        else
+          this.brief(
+            p.resumeMode === "endless" && p.endless.unlocked
+              ? p.endless.stage
+              : p.level,
+          );
         break;
       case "brief":
         if (+v + 1 <= p.unlocked) {
@@ -1015,7 +1077,7 @@ X.UI = {
       case "reset":
         this.confirm(
           "Удалить весь прогресс?",
-          "Кампания, арсенал, кредиты, контрольная точка и таблицы рекордов будут удалены. Настройки сохранятся.",
+          "Кампания, арсенал, кредиты, контрольная точка, рекорды и все три ручные ячейки будут удалены. Настройки сохранятся.",
           "doreset",
         );
         break;
@@ -1024,6 +1086,7 @@ X.UI = {
         X.profile = X.Save.defaults();
         X.profile.settings = s;
         X.Save.warning = "";
+        X.Slots.clear();
         X.Save.write(X.profile);
         this.next = 1;
         this.menu();
@@ -1039,6 +1102,31 @@ X.UI = {
       case "endless":
         if (p.endless.unlocked) this.endless();
         break;
+      case "restartExpedition": {
+        const seed = Number(document.getElementById("seed")?.value);
+        if (!Number.isInteger(seed) || seed < 1 || seed > 4294967295) {
+          this.toast("Введите целое число seed в указанном диапазоне");
+          break;
+        }
+        this.restartSeed = seed;
+        this.show(
+          '<h2>Новая экспедиция с сектора 21?</h2><p>Текущая контрольная точка будет удалена. Прокачка, арсенал, деньги и рекорд экспедиций сохранятся. Для возврата к прежнему варианту сначала используйте ручную ячейку.</p><div class="row">' +
+            this.button("doRestartExpedition", "НАЧАТЬ С СЕКТОРА 21", true) +
+            this.button("endless", "ОТМЕНА") +
+            "</div>",
+          "restart-expedition",
+        );
+        break;
+      }
+      case "doRestartExpedition":
+        if (!p.endless.unlocked || !Number.isInteger(this.restartSeed)) break;
+        p.endless.stage = 21;
+        p.endless.seed = this.restartSeed;
+        p.resumeMode = "endless";
+        p.checkpoint = null;
+        X.Save.write(p);
+        this.brief(21);
+        break;
     }
   },
   endless() {
@@ -1050,7 +1138,16 @@ X.UI = {
         '. Каждая пятая экспедиция включает босса.</p><div class="row"><label>Seed (1–4294967295)</label><input id="seed" type="number" min="1" max="4294967295" value="' +
         X.profile.endless.seed +
         '"></div><div class="row">' +
-        this.button("expedition", "СЛЕДУЮЩИЙ СЕКТОР", true) +
+        this.button(
+          "expedition",
+          "ПРОДОЛЖИТЬ · СЕКТОР " +
+            (X.profile.checkpoint?.number > 20
+              ? X.profile.checkpoint.number
+              : X.profile.endless.stage),
+          true,
+        ) +
+        this.button("restartExpedition", "НОВАЯ ЭКСПЕДИЦИЯ · С СЕКТОРА 21") +
+        this.button("slots", "СОХРАНЕНИЯ · 3 ЯЧЕЙКИ") +
         this.button("menu", "НАЗАД") +
         "</div>",
       "endless",
@@ -1113,7 +1210,9 @@ document.addEventListener("click", (e) => {
       X.profile.checkpoint = null;
     }
     X.Save.write(X.profile);
-    X.UI.brief(X.profile.endless.stage);
+    if (X.profile.checkpoint?.number > 20)
+      X.game.start(X.profile.checkpoint.number, X.profile.checkpoint);
+    else X.UI.brief(X.profile.endless.stage);
   } else X.UI.action(b.dataset.act);
 });
 document.addEventListener("change", (e) => {
@@ -1140,14 +1239,22 @@ document.addEventListener("change", (e) => {
 });
 document.getElementById("import").addEventListener("change", async (e) => {
   try {
+    if (X.Debug.active)
+      throw Error("Выйдите из полигона перед импортом сохранений");
     const f = e.target.files[0];
     if (!f) return;
-    if (f.size > 2e6) throw Error("Файл слишком большой");
-    const profile = X.Save.validate(JSON.parse(await f.text()));
+    if (f.size > 8e6) throw Error("Файл слишком большой");
+    const data = JSON.parse(await f.text()),
+      profile = X.Save.validate(data);
+    if (X.Debug.active)
+      throw Error("Выйдите из полигона перед импортом сохранений");
+    if (Object.hasOwn(data, "saveSlots")) X.Slots.importData(data.saveSlots);
     X.profile = profile;
     X.Save.write(profile);
     X.UI.menu();
-    X.UI.toast("Профиль импортирован");
+    X.UI.toast(
+      "Профиль импортирован" + (X.Slots.notice ? ". " + X.Slots.notice : ""),
+    );
   } catch (err) {
     X.UI.toast("Ошибка импорта: " + err.message);
   }
