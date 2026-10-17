@@ -43,7 +43,9 @@
     for (let i = 0; i < n; i++) g.projectileStep(1 / 60);
   };
   const shotCount = () => g.shots.items.filter((s) => s.active).length;
-  for (const id of Object.keys(X.Armory.definitions)) {
+  for (const id of Object.keys(X.Armory.definitions).filter(
+    (id) => !X.Armory.definitions[id].newModes,
+  )) {
     clean(id);
     const index = g.weapon;
     for (let n = 0; n < 5; n++)
@@ -279,15 +281,14 @@
   g.fire(true);
   const umbrella = g.shots.items.filter((s) => s.active);
   assert(
-    umbrella.length === 8 && g.mags[g.weapon] === 7,
+    umbrella.length === 15 && g.mags[g.weapon] === 0,
     "grenade umbrella count/resource",
   );
-  const angles = umbrella
-    .map((s) => (Math.atan2(s.vy, s.vx) + Math.PI * 2) % (Math.PI * 2))
-    .sort((a, b) => a - b);
+  const radii = umbrella.map((s) => s.range + 25);
   assert(
-    angles.slice(1).every((a, i) => near(a - angles[i], Math.PI / 4)),
-    "umbrella not circular",
+    radii.filter((r) => near(r, 218)).length === 11 &&
+      radii.filter((r) => near(r, 512)).length === 4,
+    "umbrella rings",
   );
   clean("grenade", 5);
   g.fire(false);
@@ -416,11 +417,13 @@
     X.Save.validate(profile).checkpoint.weaponEffects.shots.length === 0,
     "corrupted effects",
   );
-  for (const id of Object.keys(X.Armory.definitions))
+  for (const id of Object.keys(X.Armory.definitions).filter(
+    (id) => !X.Armory.definitions[id].newModes,
+  ))
     for (const level of [0, 5])
       for (const alt of [false, true]) {
         clean(id, level, level);
-        g.mags[g.weapon] = 1;
+        g.mags[g.weapon] = id === "flame" && alt ? 20 : 1;
         g.ammo[X.weapons[g.weapon].ammo] = 0;
         g.charge = g.weaponCharge(alt);
         g.fire(alt);

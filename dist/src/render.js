@@ -755,6 +755,35 @@ X.Render = {
       );
       g.stroke();
     }
+    if (game.weapon === 0 && game.gunState.parry > 0) {
+      g.strokeStyle = "#baffef";
+      g.lineWidth = 5;
+      g.beginPath();
+      g.arc(p.x, p.y, 55, p.angle - 1.65, p.angle + 1.65);
+      g.stroke();
+    }
+    if (game.pulse?.life > 0) {
+      const o = game.pulse;
+      if (game.state === "play") o.life -= dt;
+      g.strokeStyle = "#8bf3f3";
+      g.globalAlpha = Math.max(0, o.life * 4);
+      g.lineWidth = 7;
+      g.beginPath();
+      g.arc(
+        o.x,
+        o.y,
+        o.range * (1 - o.life / 0.3),
+        o.angle - 0.6,
+        o.angle + 0.6,
+      );
+      g.stroke();
+      g.globalAlpha = 1;
+    }
+    if (game.weapon === 5 && game.mouse.right) {
+      g.strokeStyle = "#d4c78f";
+      g.lineWidth = 3;
+      g.strokeRect(p.x - 27, p.y - 27, 54, 54);
+    }
     if (game.beams)
       for (let i = game.beams.length - 1; i >= 0; i--) {
         const b = game.beams[i];
@@ -805,6 +834,31 @@ X.Render = {
       g.globalCompositeOperation = "source-over";
     }
     // Метка цели поверх существ и освещения, но в мировых координатах.
+    for (const e of game.enemies.items)
+      if (
+        e.active &&
+        visible(e.x, e.y) &&
+        (e.weakTime > 0 || e.cripple > 0 || e.suppressed > 0)
+      ) {
+        g.strokeStyle =
+          e.weakTime > 0 ? "#ffc76a" : e.cripple > 0 ? "#89eaff" : "#efdd8c";
+        g.lineWidth = 2;
+        g.beginPath();
+        g.arc(e.x, e.y, e.r + 7, 0, 7);
+        g.stroke();
+        g.fillStyle = g.strokeStyle;
+        g.font = "bold 11px Segoe UI";
+        g.textAlign = "center";
+        g.fillText(
+          e.weakTime > 0
+            ? "МЕТКА " + e.weakTime.toFixed(1)
+            : e.cripple > 0
+              ? "СКОВАН"
+              : "ПОДАВЛЕН",
+          e.x,
+          e.y - e.r - 12,
+        );
+      }
     const core = game.objectives[0];
     if (core && visible(core.x, core.y)) this.defenseHealth(g, game);
     g.restore();

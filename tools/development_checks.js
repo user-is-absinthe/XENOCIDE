@@ -150,12 +150,12 @@
   g.mags[1] = 14;
   g.fire(false);
   assert(
-    near(g.cool, 0.228) && g.mags[1] === 13,
-    "rate branch actual cooldown/ammo",
+    near(g.cool, 0.3) && g.mags[1] === 13,
+    "pistol B must not change LMB cooldown",
   );
   room();
   g.weapon = 0;
-  let e = target(345);
+  let e = target(305);
   g.fire(false);
   assert(e.hp < 10000, "blade reach branch");
   // Новые A/B режимы семи пушек проверяются отдельно в modes_checks.js.

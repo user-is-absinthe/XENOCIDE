@@ -36,15 +36,14 @@ with tempfile.TemporaryDirectory(prefix='portable-', dir=TEMP) as work:
         assert page.locator('[data-weapon="3"] .weapon-mod-info').inner_text().find('Урон одной дробины') >= 0
         assert 'горения не меняется' in page.locator('[data-weapon="7"] .weapon-mod-info').inner_text()
         pistol = page.locator('[data-weapon="1"]')
-        for before, after in [('30','33,6'), ('33,6','37,2'), ('37,2','40,8')]:
-            assert f'{before} → {after}' in pistol.locator('.weapon-mod-info').inner_text()
+        for rank in range(5):
+            assert f'{rank}/5' in pistol.locator('.weapon-mod-info').inner_text()
             pistol.locator('[data-act="mod:1"]').click()
-        assert '40,8' in pistol.locator('.weapon-mod-info').inner_text()
-        assert '+36%' in pistol.locator('.weapon-mod-info').inner_text()
+        assert '48' in pistol.locator('.weapon-mod-info').inner_text()
         assert pistol.locator('[data-act="mod:1"]').is_disabled()
         assert '₡' not in pistol.locator('[data-act="mod:1"]').inner_text()
         page.evaluate('X.profile.upgrades.power=2;X.UI.shop()')
-        assert '46,8' in pistol.locator('.weapon-mod-info').inner_text()
+        assert '54' in pistol.locator('.weapon-mod-info').inner_text()
         pistol.scroll_into_view_if_needed()
         page.mouse.move(10,10)
         page.evaluate("X.UI.hideWeaponTooltip();document.getElementById('toast').classList.remove('visible')")
@@ -56,13 +55,13 @@ with tempfile.TemporaryDirectory(prefix='portable-', dir=TEMP) as work:
           if(X.game.mags[1]!==13) throw Error('upgrade changed ammo consumption');
           X.game.pause();return shot.damage;
         }''')
-        assert abs(damage - 46.8) < 1e-8, damage
+        assert abs(damage - 54) < 1e-8, damage
         page.reload()
-        assert page.evaluate('X.profile.weaponMods.pistol===3 && X.profile.upgrades.power===2')
+        assert page.evaluate('X.profile.weaponMods.pistol===5 && X.profile.upgrades.power===2')
         battle = page.evaluate((ROOT / 'tools' / 'battle_checks.js').read_text(encoding='utf-8'))
         assert not errors and not network, (errors, network)
         browser.close()
-        report = {'copiedFileLaunch':True, 'files':len(actual), 'upgradeCards':13, 'threeLevels':True,
+        report = {'copiedFileLaunch':True, 'files':len(actual), 'upgradeCards':13, 'fiveLevels':True,
                   'damageWithImplant':damage, 'battle':battle, 'saved':True, 'errors':errors, 'network':len(network)}
         (ART / 'portable-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2), encoding='utf-8')
         print(json.dumps(report,ensure_ascii=False))

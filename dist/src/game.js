@@ -75,6 +75,9 @@ X.Game = class {
     this.charge = 0;
     this.spin = 0;
     this.pendingBurst = null;
+    this.gunState = this.newGunState();
+    this.ammoNotice = 0;
+    this.pulse = null;
     this.enemySerial = 0;
     this.moving = false;
     this.time = 0;
@@ -254,6 +257,7 @@ X.Game = class {
     if (this.state !== "play") return;
     this.clock += dt;
     this.time += dt;
+    this.gunStep(dt);
     this.cool = Math.max(0, this.cool - dt);
     this.shake = Math.max(0, this.shake - dt * 20);
     this.damageFlash = Math.max(0, this.damageFlash - dt * 2);
@@ -283,7 +287,7 @@ X.Game = class {
       X.weapons[this.weapon].kind === "machine" &&
       (this.mouse.left || this.mouse.right)
     )
-      speed *= 0.65;
+      speed *= this.mouse.right ? 0.2 : 0.65;
     p.stamina = Math.max(
       0,
       Math.min(
@@ -302,7 +306,12 @@ X.Game = class {
     }
     p.invuln = Math.max(0, p.invuln - dt);
     const dashPressed = this.keys.has(k.dash);
-    if (dashPressed && !this.dashHeld && p.dashCharges > 0) {
+    if (
+      dashPressed &&
+      !this.dashHeld &&
+      p.dashCharges > 0 &&
+      !(this.weapon === 5 && this.mouse.right)
+    ) {
       let a = length ? Math.atan2(dy, dx) : p.angle;
       for (let i = 0; i < 12; i++)
         this.map.move(p, Math.cos(a) * 12, Math.sin(a) * 12);
@@ -526,11 +535,14 @@ X.Game = class {
         charge: this.charge,
         spin: this.spin,
       },
+      gunState: { ...this.gunState },
       burstState: this.pendingBurst
         ? {
             remaining: this.pendingBurst.remaining,
             timer: this.pendingBurst.timer,
             alt: this.pendingBurst.alt,
+            per: this.pendingBurst.per,
+            fired: this.pendingBurst.fired,
           }
         : null,
       weaponEffects: this.effectsSnapshot(),
@@ -557,6 +569,7 @@ X.Game = class {
           0,
           key === "spin" ? 1 : 10,
         );
+    this.gunState = { ...this.newGunState(), ...c.gunState };
     this.player.maxStamina = X.PlayerStats.stamina(X.profile.upgrades);
     this.player.maxDashCharges = X.PlayerStats.dashCapacity(X.profile.upgrades);
     this.player.dashCharges = Math.floor(

@@ -4,6 +4,7 @@ Object.assign(X.Game.prototype, {
   switchWeapon(index) {
     if (X.profile.owned.includes(index)) {
       this.cancelBurst();
+      this.gunState.parry = 0;
       this.weapon = index;
       this.reload = 0;
       this.charge = 0;
@@ -70,6 +71,10 @@ Object.assign(X.Game.prototype, {
     if (this.reload > 0) return;
     const base = X.weapons[this.weapon];
     if (base.debugOnly && !X.Debug.active) return;
+    if (X.Armory.definitions[base.id]?.newModes) {
+      this.fireFieldWeapon(alt);
+      return;
+    }
     if (X.Armory.has(base)) {
       this.fireModeWeapon(alt);
       return;
@@ -257,6 +262,16 @@ Object.assign(X.Game.prototype, {
       hostId: 0,
       safeX: this.map.blocked(x, y) ? this.player.x : x,
       safeY: this.map.blocked(x, y) ? this.player.y : y,
+      ownerID: w.ownerID || null,
+      trackSeries: !!w.trackSeries,
+      hitAny: false,
+      armorPierce: !!w.armorPierce,
+      weakTime: w.weakTime || 0,
+      weakFactor: w.weakFactor || 1,
+      cripple: w.cripple || 0,
+      suppress: w.suppress || 0,
+      ricochets: w.ricochets || 0,
+      umbrella: !!w.umbrella,
     });
     s.hit.clear();
     return s;
@@ -265,6 +280,7 @@ Object.assign(X.Game.prototype, {
     for (const s of this.shots.items)
       if (s.active) {
         s.life -= dt;
+        if (s.enemy) this.parryProjectile(s);
         if (s.stuck) {
           if (s.host?.active && s.host.spawnId === s.hostId) {
             s.x = s.host.x;
@@ -293,20 +309,38 @@ Object.assign(X.Game.prototype, {
           }
           this.fx(s.x, s.y, "#c99369", 1, 25);
         }
-        let steps = Math.max(1, Math.ceil((Math.hypot(s.vx, s.vy) * dt) / 12));
+        const travelDt = s.umbrella
+          ? Math.max(0, Math.min(dt, s.life + dt))
+          : dt;
+        let steps = Math.max(
+          1,
+          Math.ceil((Math.hypot(s.vx, s.vy) * travelDt) / 12),
+        );
         s.oldX = s.x;
         s.oldY = s.y;
         for (let n = 0; n < steps && s.active && !s.stuck; n++) {
           const ox = s.x,
             oy = s.y;
-          s.x += (s.vx * dt) / steps;
-          s.y += (s.vy * dt) / steps;
+          s.x += (s.vx * travelDt) / steps;
+          s.y += (s.vy * travelDt) / steps;
           const inside =
             s.x >= 0 &&
             s.y >= 0 &&
             s.x < this.map.w * X.C.tile &&
             s.y < this.map.h * X.C.tile;
           if (!inside || (this.map.blocked(s.x, s.y) && !s.wallPierce)) {
+            if (inside && s.ricochets > s.bounces) {
+              const bx = this.map.blocked(s.x, oy),
+                by = this.map.blocked(ox, s.y);
+              if (bx || !by) s.vx *= -1;
+              if (by || !bx) s.vy *= -1;
+              s.x = ox;
+              s.y = oy;
+              s.bounces++;
+              s.damage *= 0.8;
+              this.fx(ox, oy, s.color, 3, 40);
+              continue;
+            }
             if (s.payload) {
               if (s.payload === "sticky") this.attachShot(s);
               else {
@@ -324,9 +358,10 @@ Object.assign(X.Game.prototype, {
               s.bounces++;
               continue;
             }
-            if (s.blast) this.explode(ox, oy, s.blast, s.damage, s.enemy);
+            if (s.blast) this.shotExplosion(s, ox, oy);
             this.fx(ox, oy, s.color, 3, 45);
             s.active = false;
+            this.fieldMiss(s);
             break;
           }
           s.safeX = s.x;
@@ -348,10 +383,10 @@ Object.assign(X.Game.prototype, {
                   if (s.payload === "sticky") this.attachShot(s, e);
                   else this.finishPayload(s);
                 } else if (s.blast) {
-                  this.explode(s.x, s.y, s.blast, s.damage, false);
+                  this.shotExplosion(s);
                   s.active = false;
                 } else {
-                  this.hurtEnemy(e, s.damage, s.type);
+                  this.fieldHit(s, e);
                   this.emitRailShards(s, e);
                   if (s.kind === "flame") e.burn = 3;
                   if (s.kind === "plasma") e.slow = 1.3;
@@ -373,6 +408,7 @@ Object.assign(X.Game.prototype, {
                   break;
                 }
                 o.hp -= s.damage;
+                s.hitAny = true;
                 s.active = false;
                 if (o.hp <= 0) {
                   o.done = true;
@@ -388,8 +424,8 @@ Object.assign(X.Game.prototype, {
             else this.finishPayload(s);
             continue;
           }
-          if (s.blast && s.active)
-            this.explode(s.x, s.y, s.blast, s.damage, s.enemy);
+          if (s.blast && s.active) this.shotExplosion(s);
+          this.fieldMiss(s);
           s.active = false;
         }
       }
@@ -420,7 +456,8 @@ Object.assign(X.Game.prototype, {
       });
     }
   },
-  hurtPlayer(damage) {
+  hurtPlayer(damage, source = null) {
+    if (source && this.parryMelee(source)) return;
     if (X.Debug.enabled("god")) return;
     let p = this.player;
     if (p.invuln > 0) return;
@@ -432,10 +469,13 @@ Object.assign(X.Game.prototype, {
     this.stats.damage += damage;
     X.Audio.play("hurt");
   },
-  hurtEnemy(e, damage, type) {
+  hurtEnemy(e, damage, type, armorPierce = false) {
     if (!e.active) return;
     let d = X.enemies[e.type];
-    e.hp -= damage * (d.resist?.[type] ?? 1);
+    e.hp -=
+      damage *
+      (e.weakTime > 0 ? e.weakFactor : 1) *
+      (armorPierce && type === "kinetic" ? 1 : (d.resist?.[type] ?? 1));
     if (damage > 3) this.fx(e.x, e.y, d.color, 2, 45);
     if (e.hp <= 0) this.kill(e);
   },

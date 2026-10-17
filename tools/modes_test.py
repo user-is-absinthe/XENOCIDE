@@ -18,8 +18,8 @@ with sync_playwright() as p:
     page.evaluate('X.profile=X.Save.defaults();X.profile.owned=X.weapons.map((_,i)=>i);X.profile.unlocked=20;X.profile.credits=1e7;X.UI.shop()')
     for i in [3,7,8,9,10,11,12]:
         card=page.locator(f'[data-weapon="{i}"]')
-        assert 'А · ЛКМ' in card.locator('.weapon-mod-info').inner_text()
-        assert 'Б · ПКМ' in card.locator('.weapon-tuning-info').inner_text()
+        assert 'ЛКМ' in card.locator('.weapon-mod-info').inner_text() and 'А ·' not in card.locator('.weapon-mod-info').inner_text()
+        assert 'ПКМ' in card.locator('.weapon-tuning-info').inner_text() and 'Б ·' not in card.locator('.weapon-tuning-info').inner_text()
         for mode in ['mod','tune']:
             for rank in range(5):
                 button=card.locator(f'[data-act="{mode}:{i}"]')
@@ -97,6 +97,6 @@ with sync_playwright() as p:
     pg.evaluate('X.Slots.restore(0);X.game.pause();X.UI.hide();document.getElementById("toast").classList.remove("visible")')
     pg.wait_for_timeout(500);pg.screenshot(path=str(ART/'weapon-modes-sticky.png'))
     ctx.close()
-    report.update(fullEdgeRestartEffects=True,jsonEffectsAndSlots=True,errors=errors,network=0,version='1.3.0')
+    report.update(fullEdgeRestartEffects=True,jsonEffectsAndSlots=True,errors=errors,network=0,version='1.4.0')
     (ART/'modes-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False),flush=True)

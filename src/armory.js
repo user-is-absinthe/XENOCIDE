@@ -18,7 +18,7 @@ X.Armory = {
       b: "Напалмовый заряд",
       descA: "+12% угла, +15% длины и урона, +20 топлива за ступень.",
       descB:
-        "Один заряд топлива запускает снаряд. При ударе остаётся огненная лужа: растут урон, радиус и длительность.",
+        "20 единиц топлива запускают снаряд. При ударе остаётся огненная лужа: растут урон, радиус и длительность. При остатке меньше 20 используйте ЛКМ или перезарядку.",
     },
     plasma: {
       magStep: 4,
@@ -53,7 +53,7 @@ X.Armory = {
       descA:
         "+15% урона и +2 гранаты за ступень. Пауза уменьшается до 0,32 с — медленная очередь.",
       descB:
-        "3–8 гранат одновременно вокруг бойца. Каждая тратит один патрон; при нехватке вылетит меньше. Растут урон и радиус взрыва.",
+        "Весь остаток магазина — кольцо взрывов вплотную к безопасной зоне бойца. С III ступени и от 8 гранат — второе, более редкое дальнее кольцо. Растут урон и радиус.",
     },
     rocket: {
       magStep: 2,
@@ -91,6 +91,7 @@ X.Armory = {
       : 0;
   },
   stats(w, alt = false, p = X.profile) {
+    if (this.definitions[w.id]?.newModes) return X.FieldArmory.stats(w, alt, p);
     const n = this.level(w, alt, p),
       t = {
         ...w,
@@ -143,6 +144,7 @@ X.Armory = {
         t.radius = 5;
       }
       if (w.id === "flame") {
+        t.cost = 20;
         t.damage *= 2 * (1 + 0.25 * n);
         t.rate = 0.8 - 0.03 * n;
         t.range = 800;
@@ -180,7 +182,8 @@ X.Armory = {
       if (w.id === "grenade") {
         t.damage *= 1 + 0.12 * n;
         t.blast *= 1 + 0.08 * n;
-        t.count = 3 + n;
+        t.count = t.mag;
+        t.rings = n >= 3 ? 2 : 1;
         t.rate = 1.3;
         t.range = 190 + 10 * n;
       }
@@ -195,6 +198,8 @@ X.Armory = {
     return t;
   },
   summary(w, alt, p = X.profile) {
+    if (this.definitions[w.id]?.newModes)
+      return X.FieldArmory.summary(w, alt, p);
     const t = this.stats(w, alt, p),
       f = (n) => n.toLocaleString("ru-RU", { maximumFractionDigits: 3 });
     if (!alt) {
@@ -230,7 +235,7 @@ X.Armory = {
       return "Урон на патрон " + f(t.damage) + " × весь остаток магазина";
     if (w.id === "flame")
       return (
-        "Лужа " +
+        "Расход 20 · лужа " +
         f(t.poolDps) +
         " HP/с · радиус " +
         t.poolRadius +
@@ -265,6 +270,15 @@ X.Armory = {
         " патронов · заряд " +
         f(t.charge) +
         " с"
+      );
+    if (w.id === "grenade")
+      return (
+        "Весь магазин · колец " +
+        t.rings +
+        " · урон " +
+        f(t.damage) +
+        " · радиус " +
+        f(t.blast)
       );
     return (
       "Одновременно до " +

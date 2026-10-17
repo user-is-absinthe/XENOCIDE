@@ -6,7 +6,7 @@ X.Save = {
   defaults() {
     return {
       version: 1,
-      weaponModesVersion: 1,
+      weaponModesVersion: 2,
       resumeMode: "campaign",
       level: 1,
       unlocked: 1,
@@ -347,15 +347,39 @@ X.Save = {
             remaining: c.burstState.remaining,
             timer: this.number(c.burstState.timer, 0, 0.07),
             alt: c.burstState.alt === true,
+            per: c.burstState.per === 1 ? 1 : c.burstState.alt ? 2 : 1,
+            fired: Math.floor(
+              this.number(c.burstState.fired, 1, 2, 3 - c.burstState.remaining),
+            ),
           }
         : null;
     clean.weaponEffects = this.weaponEffects(c.weaponEffects, m);
+    clean.gunState = {};
+    for (const [key, max] of Object.entries({
+      combo: 2,
+      comboTimer: 1,
+      parry: 1,
+      parryCooldown: 3,
+      pistolStreak: 5,
+      sniperStreak: 4,
+      machineHeat: 1,
+    })) {
+      const value = this.number(c.gunState?.[key], 0, max);
+      clean.gunState[key] = ["combo", "pistolStreak", "sniperStreak"].includes(
+        key,
+      )
+        ? Math.floor(value)
+        : value;
+    }
     for (const e of clean.enemies) {
       e.spawnId =
         Number.isSafeInteger(e.spawnId) && e.spawnId > 0 && e.spawnId <= 1e9
           ? e.spawnId
           : 0;
       e.poolFire = this.number(e.poolFire, 0, 1);
+      for (const key of ["weakTime", "cripple", "suppressed", "interrupt"])
+        e[key] = this.number(e[key], 0, 12);
+      e.weakFactor = this.number(e.weakFactor, 1, 1.5, 1);
     }
     return clean;
   },

@@ -37,6 +37,11 @@ Object.assign(X.Game.prototype, {
       type,
       spawnId: ++this.enemySerial,
       poolFire: 0,
+      weakTime: 0,
+      weakFactor: 1,
+      cripple: 0,
+      suppressed: 0,
+      interrupt: 0,
       hp: d.hp * this.diff.hp * scale * (elite ? 1.65 : 1),
       maxHp: d.hp * this.diff.hp * scale * (elite ? 1.65 : 1),
       elite,
@@ -61,6 +66,8 @@ Object.assign(X.Game.prototype, {
       d = X.enemies[e.type];
     e.age += dt;
     e.poolFire = Math.max(0, (e.poolFire || 0) - dt);
+    for (const key of ["weakTime", "cripple", "suppressed", "interrupt"])
+      e[key] = Math.max(0, (e[key] || 0) - dt);
     e.phase += dt * 8;
     e.attack -= dt;
     e.special -= dt;
@@ -70,6 +77,11 @@ Object.assign(X.Game.prototype, {
       e.burn -= dt;
       this.hurtEnemy(e, 20 * dt, "fire");
       if (!e.active) return;
+    }
+    if (e.stun > 0 || e.cripple > 0) return;
+    if (e.interrupt > 0) {
+      e.attack = Math.max(e.attack, e.interrupt);
+      e.special = Math.max(e.special, e.interrupt);
     }
     let tx = p.x,
       ty = p.y,
@@ -144,7 +156,7 @@ Object.assign(X.Game.prototype, {
       e.attack = d.rate / this.diff.speed;
     }
     if (dist < p.r + e.r + 6 && e.attack <= 0) {
-      if (!coreTarget) this.hurtPlayer(d.damage * this.diff.damage);
+      if (!coreTarget) this.hurtPlayer(d.damage * this.diff.damage, e);
       else {
         this.coreHp -= d.damage * this.diff.damage;
         if (this.coreHp <= 0)
@@ -160,7 +172,11 @@ Object.assign(X.Game.prototype, {
     }
     if (e.stun > 0) return;
     let speed =
-      d.speed * this.diff.speed * (e.elite ? 1.1 : 1) * (e.slow > 0 ? 0.45 : 1);
+      d.speed *
+      this.diff.speed *
+      (e.elite ? 1.1 : 1) *
+      (e.slow > 0 ? 0.45 : 1) *
+      (e.suppressed > 0 ? 0.55 : 1);
     if (ranged && e.clear && dist < 260) speed *= -0.35;
     else if (ranged && e.clear && dist < 420) speed *= 0.18;
     let vx = Math.cos(a),

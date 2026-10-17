@@ -79,6 +79,34 @@ X.Debug = {
           NORELOAD: "Без перезарядки",
           GOD: "Бессмертие",
         }[code] + (this.flags[flag] ? ": ВКЛ" : ": ВЫКЛ");
+    } else if (code === "MAXWEAPONS") {
+      this.code("ARSENAL");
+      for (const w of X.weapons)
+        if (!w.debugOnly) {
+          X.profile.weaponMods[w.id] = X.Armory.max;
+          X.profile.weaponTuning[w.id] = X.Armory.max;
+        }
+      if (g.player && ["play", "pause"].includes(g.state)) {
+        g.cancelBurst();
+        g.mags = X.weapons.map((w) => X.Armory.mag(w));
+        g.reload = 0;
+        g.charge = 0;
+      }
+      message = "Весь штатный арсенал и все ветки оружия: максимум";
+    } else if (code === "MAXPLAYER") {
+      for (const u of X.upgrades) X.profile.upgrades[u.id] = u.max;
+      if (g.player && ["play", "pause"].includes(g.state)) {
+        const p = g.player,
+          u = X.profile.upgrades;
+        g.cancelBurst();
+        p.hp = p.maxHp = 100 + 25 * u.health;
+        p.armor = p.maxArmor = 20 * u.armor;
+        p.stamina = p.maxStamina = X.PlayerStats.stamina(u);
+        p.dashCharges = p.maxDashCharges = X.PlayerStats.dashCapacity(u);
+        p.dash = 0;
+      }
+      message =
+        "Все импланты персонажа: максимум · здоровье и ресурсы восстановлены";
     } else if (code === "ARSENAL") {
       X.profile.owned = [
         ...new Set([
@@ -106,7 +134,7 @@ X.Debug = {
       message = "Ракетный шторм выдан · бесконечные ракеты без перезарядки";
     } else {
       X.UI.toast(
-        "Неизвестный код. CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE",
+        "Коды: CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE / MAXWEAPONS / MAXPLAYER",
       );
       return false;
     }

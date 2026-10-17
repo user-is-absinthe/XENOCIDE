@@ -141,6 +141,21 @@ p {
   background: #30454d;
   margin: 22px 0;
 }
+.debug-supply {
+  margin: 22px 0;
+  padding: 18px 20px;
+  border: 1px solid #52766e;
+  border-left: 4px solid #6de2ce;
+  background: #112b30;
+}
+.debug-supply h3,
+.debug-cheats h3 {
+  margin-top: 0;
+}
+.debug-cheats {
+  padding: 18px 0 0;
+  border-top: 1px solid #30454d;
+}
 .row {
   display: flex;
   gap: 12px;

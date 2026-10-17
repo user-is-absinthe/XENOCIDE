@@ -16,9 +16,13 @@ Object.assign(X.Game.prototype, {
       return;
     }
     let cost = 1;
-    if (alt && ["shotgun", "plasma"].includes(w.id)) cost = available;
-    if (alt && ["grenade", "rocket"].includes(w.id))
-      cost = Math.min(available, w.count);
+    if (alt && w.id === "flame") {
+      if (!this.requireAmmo(20)) return;
+      cost = 20;
+    }
+    if (alt && ["shotgun", "plasma", "grenade"].includes(w.id))
+      cost = available;
+    if (alt && w.id === "rocket") cost = Math.min(available, w.count);
     if (alt && w.id === "rail") cost = Math.min(available, w.cost);
     const charged = w.id === "rail" && this.charge >= w.charge;
     this.mags[this.weapon] -= cost;
@@ -36,8 +40,7 @@ Object.assign(X.Game.prototype, {
     );
     if (w.id === "tesla") this.fireTesla(w, alt);
     else if (alt && w.id === "grenade") {
-      for (let i = 0; i < cost; i++)
-        this.modeShot(w, p.angle + (i * Math.PI * 2) / cost, w.damage);
+      this.fireUmbrella(w, cost);
     } else if (alt && w.id === "rocket") {
       for (let i = 0; i < cost; i++)
         this.modeShot(w, p.angle + (i - (cost - 1) / 2) * 0.1, w.damage);
@@ -147,10 +150,7 @@ Object.assign(X.Game.prototype, {
   },
   fireRifle(alt) {
     if (this.pendingBurst) return;
-    const w = X.WeaponStats.tuned(
-      X.weapons[this.weapon],
-      X.profile.weaponTuning.rifle || 0,
-    );
+    const w = X.Armory.stats(X.weapons[this.weapon], false);
     let per = alt ? 2 : 1;
     if (this.mags[this.weapon] < per) {
       alt = false;
@@ -162,18 +162,14 @@ Object.assign(X.Game.prototype, {
       return;
     }
     this.mags[this.weapon] -= count * per;
-    const damage =
-      X.WeaponStats.damage(
-        w,
-        X.profile.weaponMods.rifle || 0,
-        X.profile.upgrades.power,
-      ) * (alt ? 1.65 : 1);
+    const damage = w.damage * (alt ? 1.65 : 1);
     this.pendingBurst = {
       remaining: count - 1,
       timer: 0.07,
       alt,
       round: { ...w, damage },
       per,
+      fired: 0,
     };
     this.cool = w.rate * (alt ? 1.35 : 1);
     this.stats.shots++;
@@ -185,7 +181,19 @@ Object.assign(X.Game.prototype, {
   },
   rifleRound(w) {
     const a = this.player.angle + (this.rng.next() - 0.5) * w.spread;
-    this.modeShot(w, a, w.damage);
+    const b = this.pendingBurst,
+      index = b ? b.fired++ : 0,
+      third = index === 2 && !b?.alt;
+    this.modeShot(
+      {
+        ...w,
+        armorPierce: third,
+        color: third ? "#a5e7ff" : w.color,
+        radius: third ? 4 : 3,
+      },
+      a,
+      w.damage * (third ? w.thirdBonus : 1),
+    );
     this.muzzle = 0.055;
     X.Audio.play("rifle");
   },
@@ -211,21 +219,14 @@ Object.assign(X.Game.prototype, {
   },
   restoreBurst(state) {
     if (!state || state.remaining < 1) return;
-    const w = X.WeaponStats.tuned(
-      X.weapons[4],
-      X.profile.weaponTuning.rifle || 0,
-    );
-    w.damage =
-      X.WeaponStats.damage(
-        w,
-        X.profile.weaponMods.rifle || 0,
-        X.profile.upgrades.power,
-      ) * (state.alt ? 1.65 : 1);
+    const w = X.Armory.stats(X.weapons[4], false);
+    if (state.alt) w.damage *= 1.65;
     this.pendingBurst = {
       remaining: state.remaining,
       timer: state.timer,
       alt: state.alt,
-      per: state.alt ? 2 : 1,
+      per: state.per || (state.alt ? 2 : 1),
+      fired: state.fired || 3 - state.remaining,
       round: w,
     };
   },
@@ -392,6 +393,16 @@ Object.assign(X.Game.prototype, {
           shards: 0,
           homing: 0,
           hit: new Set(),
+          ownerID: null,
+          trackSeries: false,
+          hitAny: false,
+          armorPierce: false,
+          weakTime: 0,
+          weakFactor: 1,
+          cripple: 0,
+          suppress: 0,
+          ricochets: 0,
+          umbrella: false,
           host:
             this.enemies.items.find(
               (e) => e.active && e.spawnId === saved.hostId,

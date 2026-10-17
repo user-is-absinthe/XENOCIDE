@@ -262,7 +262,8 @@ X.UI = {
       '<div class="' +
       (alt ? "weapon-tuning-info" : "weapon-mod-info") +
       '"><b>' +
-      (alt ? "Б · ПКМ · " : "А · ЛКМ · ") +
+      (spec.newModes ? (alt ? "Б · " : "А · ") : "") +
+      (alt ? "ПКМ · " : "ЛКМ · ") +
       spec[alt ? "b" : "a"] +
       " · " +
       level +
@@ -272,7 +273,9 @@ X.UI = {
       unit +
       X.Armory.summary(w, alt) +
       (maxed ? " · максимум" : " → " + X.Armory.summary(w, alt, next)) +
-      '</strong><br><span class="small">Магазин общий для А и Б. Учтён имплант, значения до сопротивлений цели.' +
+      '</strong><br><span class="small">' +
+      (w.ammo ? "Магазин общий для обоих режимов. " : "Патроны не нужны. ") +
+      "Учтён имплант, значения до сопротивлений цели." +
       note +
       "</span></div>"
     );
@@ -515,7 +518,7 @@ X.UI = {
         (X.Debug.active
           ? "<p>Магазин полигона. Прокачка полностью применяется при следующей высадке. Повторное открытие меню её не сбрасывает.</p>"
           : "") +
-        '<p>Покупка оружия включает три магазина. У семи тяжёлых пушек ветка А улучшает ЛКМ, Б — отдельную атаку ПКМ. Магазин общий. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
+        '<p>Покупка оружия включает три магазина. ЛКМ и ПКМ развиваются отдельно, по пять ступеней. Новые ветки клинка, пистолета, ПП, винтовки, пулемёта и снайперской отмечены А/Б. Магазин общий. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
         ammo +
         '</div><div class="rule"></div><h3>Импланты</h3><div class="cards">' +
         upgrades +
@@ -582,17 +585,23 @@ X.UI = {
     this.show(
       '<div class="eyebrow">Режим тестирования</div><h2>Полигон <span class="money">₡ ' +
         X.profile.credits +
-        '</span></h2><p>При каждом входе: 500 000 кредитов и нулевая прокачка бойца/обеих веток оружия. Все 20 карт и открытая арена доступны. Читы и прогресс полигона не записываются в сохранение кампании.</p><div class="row">' +
+        '</span></h2><p>При каждом входе: 500 000 кредитов и нулевая прокачка бойца/обеих веток оружия. Все 20 карт и открытая арена доступны. Читы и прогресс полигона не записываются в сохранение кампании.</p><section class="debug-supply"><h3>Снабжение и ручная прокачка</h3><p class="small">Соберите свой вариант развития через обычные покупки.</p>' +
+        this.button("shop", "МАГАЗИН ПОЛИГОНА · ПРОКАЧКА", true) +
+        '</section><section class="debug-cheats"><h3>Читы для испытаний</h3><div class="row">' +
         this.button("cheat:CREDITS", "CREDITS · +10 000 ₡") +
         this.button("cheat:ARSENAL", "ARSENAL · ВЕСЬ АРСЕНАЛ") +
-        this.button("shop", "МАГАЗИН ПОЛИГОНА · ПРОКАЧКА") +
+        this.button("cheat:MAXWEAPONS", "MAXWEAPONS · ПОЛНАЯ ПРОКАЧКА ОРУЖИЯ") +
+        this.button(
+          "cheat:MAXPLAYER",
+          "MAXPLAYER · ПОЛНАЯ ПРОКАЧКА ПЕРСОНАЖА",
+        ) +
         this.button("cheat:BARRAGE", "BARRAGE · РАКЕТНЫЙ ШТОРМ") +
         flag("AMMO", "ammo", "Бесконечные патроны") +
         flag("NORELOAD", "noReload", "Без перезарядки") +
         flag("GOD", "god", "Бессмертие") +
-        '</div><p class="small">BARRAGE выдаёт экспериментальную ракетницу с темпом ПП, без патронов и перезарядки. Выберите её колесом после высадки.</p><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="CREDITS / AMMO / NORELOAD / GOD / ARSENAL / BARRAGE">' +
+        '</div><p class="small">MAXWEAPONS выдаёт весь штатный арсенал и ставит обе ветки на V. MAXPLAYER развивает все импланты, восстанавливает здоровье и ресурсы в бою. BARRAGE выдаёт экспериментальную ракетницу с темпом ПП, без патронов и перезарядки.</p><div class="row"><label for="cheat-code">Чит-код</label><input id="cheat-code" maxlength="32" autocomplete="off" placeholder="MAXWEAPONS / MAXPLAYER / …">' +
         this.button("runCheat", "ВВЕСТИ") +
-        '</div><div class="row">' +
+        '</div></section><div class="rule"></div><h3>Карты испытаний</h3><div class="row">' +
         this.button("testArena", "ОТКРЫТАЯ АРЕНА · БЕЗ ВНУТРЕННИХ СТЕН", true) +
         '</div><div class="level-grid">' +
         X.levels
@@ -872,7 +881,9 @@ X.UI = {
       (w.ammo
         ? g.ammoStatus().mag + " <small>/ " + g.ammoStatus().total + "</small>"
         : "∞") +
-      '</strong><div class="hint">' +
+      "</strong>" +
+      (g.gunHint() ? '<div class="hint">' + g.gunHint() + "</div>" : "") +
+      '<div class="hint">' +
       (w.ammo
         ? X.ammo[w.ammo].name + " · всего этого типа"
         : "Бесконечный ресурс") +
