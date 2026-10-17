@@ -97,6 +97,6 @@ with sync_playwright() as p:
     pg.evaluate('X.Slots.restore(0);X.game.pause();X.UI.hide();document.getElementById("toast").classList.remove("visible")')
     pg.wait_for_timeout(500);pg.screenshot(path=str(ART/'weapon-modes-sticky.png'))
     ctx.close()
-    report.update(fullEdgeRestartEffects=True,jsonEffectsAndSlots=True,errors=errors,network=0,version='1.4.0')
+    report.update(fullEdgeRestartEffects=True,jsonEffectsAndSlots=True,errors=errors,network=0,version='1.4.1')
     (ART/'modes-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False),flush=True)

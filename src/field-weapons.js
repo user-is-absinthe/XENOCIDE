@@ -88,7 +88,7 @@ Object.assign(X.Game.prototype, {
           o.hp -= damage;
           if (o.hp <= 0) {
             o.done = true;
-            this.earned += 200;
+            this.creditReward(200);
             this.explode(o.x, o.y, 80, 80, false);
           }
         }
@@ -143,7 +143,7 @@ Object.assign(X.Game.prototype, {
           o.hp -= w.damage;
           if (o.hp <= 0) {
             o.done = true;
-            this.earned += 200;
+            this.creditReward(200);
           }
         }
       this.pulse = {

@@ -293,9 +293,7 @@ Object.assign(X.Game.prototype, {
     e.active = false;
     this.kills++;
     if (this.weapon === 0) this.stats.bladeKills++;
-    this.earned += Math.round(
-      X.enemies[e.type].credit * this.diff.economy * (e.elite ? 1.8 : 1),
-    );
+    this.creditReward(X.enemies[e.type].credit * (e.elite ? 1.8 : 1));
     this.fx(e.x, e.y, "#74914f", 7, 70);
     if (X.profile.settings.blood) {
       this.marks.push({

@@ -133,6 +133,11 @@ X.Game = class {
     X.UI.hide();
     X.UI.toast(this.level.brief, 6000);
   }
+  creditReward(base) {
+    const amount = Math.round(base * this.diff.economy);
+    this.earned += amount;
+    return amount;
+  }
   seedLoot() {
     for (const [i, p] of (
       this.level.resources || [
@@ -159,7 +164,7 @@ X.Game = class {
         o.progress += dt;
         if (o.progress >= 1.5) {
           o.done = true;
-          this.earned += 150;
+          this.creditReward(150);
           X.UI.toast("Терминал активирован");
           X.Audio.play("pickup");
           this.checkpoint();
@@ -646,21 +651,19 @@ X.Game = class {
     X.profile.stats.shots += this.stats.shots;
     X.profile.stats.time += this.time;
     if (win) {
-      let bonus = Math.round(
-        (350 +
+      this.creditReward(
+        350 +
           Math.min(20, this.number) * 85 +
-          Math.sqrt(Math.max(0, this.number - 20)) * 170) *
-          this.diff.economy,
+          Math.sqrt(Math.max(0, this.number - 20)) * 170,
       );
-      this.earned += bonus;
       this.medals = [];
       if (this.stats.damage === 0) {
-        this.earned += 300;
-        this.medals.push("БЕЗ ЕДИНОЙ ЦАРАПИНЫ +300");
+        const reward = this.creditReward(300);
+        this.medals.push("БЕЗ ЕДИНОЙ ЦАРАПИНЫ +" + reward);
       }
       if (this.stats.bladeKills >= 20) {
-        this.earned += 250;
-        this.medals.push("МАСТЕР КЛИНКА +250");
+        const reward = this.creditReward(250);
+        this.medals.push("МАСТЕР КЛИНКА +" + reward);
       }
       X.profile.stats.medals += this.medals.length;
       X.profile.credits = Math.min(1e8, X.profile.credits + this.earned);

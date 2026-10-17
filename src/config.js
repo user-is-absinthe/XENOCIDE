@@ -1,6 +1,6 @@
 "use strict";
 window.X = {};
-X.version = "1.4.0";
+X.version = "1.4.1";
 X.C = {
   tile: 48,
   width: 1152,
@@ -76,7 +76,7 @@ X.difficulties = [
     speed: 0.9,
     count: 0.75,
     loot: 1.4,
-    economy: 1.2,
+    economy: 0.8,
     elite: 0.02,
   },
   {
@@ -96,7 +96,7 @@ X.difficulties = [
     speed: 1.08,
     count: 1.2,
     loot: 0.8,
-    economy: 0.9,
+    economy: 1.5,
     elite: 0.13,
   },
   {
@@ -106,7 +106,7 @@ X.difficulties = [
     speed: 1.15,
     count: 1.45,
     loot: 0.65,
-    economy: 0.85,
+    economy: 2.5,
     elite: 0.2,
   },
 ];

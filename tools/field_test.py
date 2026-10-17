@@ -17,8 +17,8 @@ with sync_playwright() as p:
     page.evaluate('X.profile=X.Save.defaults();X.profile.owned=X.weapons.map((_,i)=>i);X.profile.unlocked=20;X.profile.credits=1e7;X.UI.shop()')
     for i in [0,1,2,4,5,6]:
         card=page.locator(f'[data-weapon="{i}"]')
-        assert 'А · ЛКМ' in card.locator('.weapon-mod-info').inner_text()
-        assert 'Б · ПКМ' in card.locator('.weapon-tuning-info').inner_text()
+        assert 'ЛКМ' in card.locator('.weapon-mod-info').inner_text() and 'А ·' not in card.locator('.weapon-mod-info').inner_text()
+        assert 'ПКМ' in card.locator('.weapon-tuning-info').inner_text() and 'Б ·' not in card.locator('.weapon-tuning-info').inner_text()
         for mode in ['mod','tune']:
             for rank in range(5):
                 button=card.locator(f'[data-act="{mode}:{i}"]');button.scroll_into_view_if_needed()
@@ -107,6 +107,6 @@ with sync_playwright() as p:
     assert pg.evaluate('X.Slots.entries[0].profile.checkpoint.gunState.pistolStreak===4&&X.profile.weaponMods.blade===5')
     ctx.close()
     assert not errors and not network,(errors,network)
-    report.update(fullEdgeRestart=True,json=True,version='1.4.0',errors=errors,network=0)
+    report.update(fullEdgeRestart=True,json=True,version='1.4.1',errors=errors,network=0)
     (ART/'field-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False),flush=True)

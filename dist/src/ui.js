@@ -218,6 +218,9 @@ X.UI = {
         l.waves +
         " волн · задачи: " +
         (l.targets.length || "зачистка") +
+        '<br>Кредиты: ×<span id="credit-multiplier">' +
+        X.difficulties[X.profile.difficulty].economy.toLocaleString("ru-RU") +
+        "</span> за врагов, задания и завершение." +
         '<br>Контрольная точка каждые 30 секунд и при паузе.</p><div class="menu">' +
         this.button("deploy", "НАЧАТЬ МИССИЮ", true) +
         this.button("shop", "СНАБЖЕНИЕ") +
@@ -262,7 +265,6 @@ X.UI = {
       '<div class="' +
       (alt ? "weapon-tuning-info" : "weapon-mod-info") +
       '"><b>' +
-      (spec.newModes ? (alt ? "Б · " : "А · ") : "") +
       (alt ? "ПКМ · " : "ЛКМ · ") +
       spec[alt ? "b" : "a"] +
       " · " +
@@ -518,7 +520,7 @@ X.UI = {
         (X.Debug.active
           ? "<p>Магазин полигона. Прокачка полностью применяется при следующей высадке. Повторное открытие меню её не сбрасывает.</p>"
           : "") +
-        '<p>Покупка оружия включает три магазина. ЛКМ и ПКМ развиваются отдельно, по пять ступеней. Новые ветки клинка, пистолета, ПП, винтовки, пулемёта и снайперской отмечены А/Б. Магазин общий. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
+        '<p>Покупка оружия включает три магазина. ЛКМ и ПКМ развиваются отдельно, по пять ступеней. Магазин общий. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
         ammo +
         '</div><div class="rule"></div><h3>Импланты</h3><div class="cards">' +
         upgrades +
@@ -671,7 +673,9 @@ X.UI = {
         (win ? g.earned : 0) +
         "</b>кредиты получены</div><div><b>" +
         g.stats.shots +
-        '</b>атак</div></div><div class="row">' +
+        '</b>атак</div></div><p class="small">Коэффициент кредитов сложности: ×' +
+        g.diff.economy.toLocaleString("ru-RU") +
+        '</p><div class="row">' +
         this.button(
           X.Debug.active
             ? "debug"
@@ -1294,6 +1298,10 @@ document.addEventListener("change", (e) => {
   if (e.target.dataset.volume)
     X.profile.settings[e.target.dataset.volume] = +e.target.value;
   X.Save.write(X.profile);
+  const creditMultiplier = document.getElementById("credit-multiplier");
+  if (e.target.id === "difficulty" && creditMultiplier)
+    creditMultiplier.textContent =
+      X.difficulties[X.profile.difficulty].economy.toLocaleString("ru-RU");
   X.Audio.settings?.();
 });
 document.getElementById("import").addEventListener("change", async (e) => {

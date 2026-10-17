@@ -335,7 +335,7 @@ Object.assign(X.Game.prototype, {
             obj.hp -= o.dps * step;
             if (obj.hp <= 0) {
               obj.done = true;
-              this.earned += 200;
+              this.creditReward(200);
             }
           }
       }
