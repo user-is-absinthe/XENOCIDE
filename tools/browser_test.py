@@ -61,7 +61,7 @@ with sync_playwright() as p:
       assert(!X.Economy.weapon(12)&&X.profile.credits===credits,'duplicate purchase');
       assert(X.Economy.ammo('explosive')&&X.profile.ammo.explosive>9,'ammo');
       for(let i=0;i<7;i++)X.Economy.upgrade('health');assert(X.profile.upgrades.health===6,'upgrade cap');
-      for(let i=0;i<4;i++)X.Economy.mod(12);assert(X.profile.weaponMods.rocket===3,'mod cap');
+      for(let i=0;i<6;i++)X.Economy.mod(12);assert(X.profile.weaponMods.rocket===5,'mod cap');
       X.profile.credits=0;assert(!X.Economy.ammo('light'),'negative credits');
       let bad=X.Save.defaults();bad.ammo.light='infinity';bad.credits=-1;bad.upgrades.health=999;bad.checkpoint={number:1};
       let fixed=X.Save.validate(bad);assert(fixed.ammo.light===140&&fixed.credits===0&&fixed.upgrades.health===6&&!fixed.checkpoint,'sanitizer');

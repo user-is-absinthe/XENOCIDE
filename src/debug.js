@@ -91,7 +91,8 @@ X.Debug = {
       if (g.player && ["play", "pause"].includes(g.state)) {
         for (const a in X.ammo)
           g.ammo[a] = Math.max(g.ammo[a], X.ammo[a].pack * 10);
-        g.mags = X.weapons.map((w) => w.mag);
+        g.cancelBurst();
+        g.mags = X.weapons.map((w) => X.Armory.mag(w));
         g.reload = 0;
       }
       message = "Весь арсенал выдан";

@@ -129,7 +129,7 @@
 
   clean();
   for (let i = 0; i < 13; i++) {
-    for (let n = 0; n < 3; n++)
+    for (let n = 0; n < (X.Armory.has(X.weapons[i]) ? 5 : 3); n++)
       assert(X.Economy.tune(i), "tuning purchase " + i);
     const credits = X.profile.credits;
     assert(
@@ -139,7 +139,9 @@
   }
   const tunedProfile = X.Save.validate(JSON.parse(JSON.stringify(X.profile)));
   assert(
-    Object.values(tunedProfile.weaponTuning).every((n) => n === 3),
+    X.weapons.every(
+      (w) => tunedProfile.weaponTuning[w.id] === (X.Armory.has(w) ? 5 : 3),
+    ),
     "tuning save",
   );
   g.start(1);
@@ -156,98 +158,40 @@
   let e = target(345);
   g.fire(false);
   assert(e.hp < 10000, "blade reach branch");
-  room();
-  g.weapon = 7;
-  g.mags[7] = 140;
-  g.rng = new X.RNG(99);
-  g.fire(false);
-  let shots = g.shots.items.filter((s) => s.active);
-  assert(
-    shots.length === 3 && near(shots[0].range, 333.5),
-    "flame range branch",
-  );
-  const wide = Math.max(...shots.map((s) => Math.abs(Math.atan2(s.vy, s.vx))));
-  X.profile.weaponTuning.flame = 0;
-  g.shots.clear();
-  g.rng = new X.RNG(99);
-  g.fire(false);
-  const narrow = Math.max(
-    ...g.shots.items
-      .filter((s) => s.active)
-      .map((s) => Math.abs(Math.atan2(s.vy, s.vx))),
-  );
-  assert(wide > narrow, "flame cone branch");
-  room();
-  g.weapon = 8;
-  g.fire(false);
-  let s = g.shots.items.find((s) => s.active);
-  assert(near(Math.hypot(s.vx, s.vy), 783), "plasma velocity branch");
-  room();
-  g.weapon = 9;
-  g.mouse.x = 900;
-  g.fire(false);
-  s = g.shots.items.find((s) => s.active);
-  assert(near(s.blast, 190.4), "grenade blast branch");
-  e = target(390);
-  g.explode(200, 400, s.blast, s.damage, false);
-  assert(e.hp < 10000, "larger explosion cannot hit outer target");
-  room();
-  g.weapon = 11;
-  for (let i = 0; i < 8; i++) target(300 + i * 45);
-  g.fire(false);
-  assert(
-    g.enemies.items.filter((e) => e.active && e.hp < 10000).length === 8,
-    "tesla eight targets",
-  );
+  // Новые A/B режимы семи пушек проверяются отдельно в modes_checks.js.
+  clean();
   room();
   g.weapon = 10;
+  let eRail = target(460, 408);
   g.map.cells[8 * g.map.w + 7] = 1;
   g.player.x = 240;
   g.player.y = 408;
-  g.player.angle = 0;
-  e = target(460, 408);
   g.charge = 0.2;
   g.fire(false);
   for (let t = 0; t < 20; t++) g.projectileStep(1 / 60);
-  assert(e.hp === 10000, "partial charge penetrates wall");
+  assert(eRail.hp === 10000, "partial charge penetrates wall");
   g.shots.clear();
-  g.charge = 0.417;
+  g.charge = 0.65;
   g.fire(false);
   assert(
     g.shots.items.some((s) => s.active && s.wallPierce),
-    "full tuned charge lacks wall flag",
+    "charged rail wall flag",
   );
   for (let t = 0; t < 20; t++) g.projectileStep(1 / 60);
-  assert(e.hp < 10000, "rail cannot hit through wall");
-  assert(g.map.blocked(350, 408), "rail destroys map walls");
+  assert(eRail.hp < 10000 && g.map.blocked(350, 408), "rail wall penetration");
   g.shots.clear();
   g.weapon = 6;
   g.fire(false);
-  const hp = e.hp;
+  const hp = eRail.hp;
   for (let t = 0; t < 20; t++) g.projectileStep(1 / 60);
-  assert(e.hp === hp, "sniper penetrates wall");
-  g.shots.clear();
-  g.weapon = 10;
-  g.charge = 0.417;
-  g.fire(false);
-  for (let t = 0; t < 100; t++) g.projectileStep(1 / 60);
-  assert(
-    !g.shots.items.some((s) => s.active),
-    "rail leaves world without expiring",
-  );
+  assert(eRail.hp === hp, "sniper penetrates wall");
   clean();
-  X.profile.weaponTuning.rail = 3;
   g.weapon = 10;
   g.mouse.left = true;
-  g.waveTimer = 999;
-  for (let t = 0; t < 24; t++) g.update(1 / 60);
-  assert(g.stats.shots === 0, "tuned rail fires before charge");
-  g.update(1 / 60);
-  assert(g.stats.shots === 1, "tuned rail charge threshold");
-  assert(
-    g.shots.items.some((s) => s.active && s.wallPierce),
-    "real charged rail not penetrating",
-  );
+  for (let t = 0; t < 38; t++) g.update(1 / 60);
+  assert(g.stats.shots === 0, "rail fires before charge");
+  for (let t = 0; t < 2; t++) g.update(1 / 60);
+  assert(g.stats.shots === 1, "rail charge threshold");
 
   clean();
   X.profile.upgrades.regeneration = 5;

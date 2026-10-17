@@ -6,6 +6,7 @@ X.Save = {
   defaults() {
     return {
       version: 1,
+      weaponModesVersion: 1,
       resumeMode: "campaign",
       level: 1,
       unlocked: 1,
@@ -100,10 +101,18 @@ X.Save = {
     for (const w of X.weapons) {
       if (w.debugOnly) continue;
       d.weaponMods[w.id] = Math.floor(
-        num(s.weaponMods?.[w.id], 0, X.WeaponStats.modMax),
+        num(
+          s.weaponMods?.[w.id],
+          0,
+          X.Armory.has(w) ? X.Armory.max : X.WeaponStats.modMax,
+        ),
       );
       d.weaponTuning[w.id] = Math.floor(
-        num(s.weaponTuning?.[w.id], 0, X.WeaponStats.branch(w).max),
+        num(
+          s.weaponTuning?.[w.id],
+          0,
+          X.Armory.has(w) ? X.Armory.max : X.WeaponStats.branch(w).max,
+        ),
       );
     }
     for (const k in d.stats) d.stats[k] = num(s.stats?.[k], 0, 1e10);
@@ -199,7 +208,7 @@ X.Save = {
       !p.owned.includes(c.weapon) ||
       !Array.isArray(c.mags) ||
       c.mags.length !== X.weapons.length ||
-      !c.mags.every((n, i) => integer(n) && n <= X.weapons[i].mag)
+      !c.mags.every((n, i) => integer(n) && n <= X.Armory.mag(X.weapons[i], p))
     )
       throw Error("checkpoint weapon");
     if (
@@ -327,7 +336,103 @@ X.Save = {
       spin: 1,
     }))
       clean.weaponState[key] = this.number(c.weaponState?.[key], 0, max);
+    clean.burstState =
+      c.weapon === 4 &&
+      c.burstState &&
+      Number.isInteger(c.burstState.remaining) &&
+      c.burstState.remaining >= 1 &&
+      c.burstState.remaining <= 2 &&
+      finite(c.burstState.timer)
+        ? {
+            remaining: c.burstState.remaining,
+            timer: this.number(c.burstState.timer, 0, 0.07),
+            alt: c.burstState.alt === true,
+          }
+        : null;
+    clean.weaponEffects = this.weaponEffects(c.weaponEffects, m);
+    for (const e of clean.enemies) {
+      e.spawnId =
+        Number.isSafeInteger(e.spawnId) && e.spawnId > 0 && e.spawnId <= 1e9
+          ? e.spawnId
+          : 0;
+      e.poolFire = this.number(e.poolFire, 0, 1);
+    }
     return clean;
+  },
+  weaponEffects(data, m) {
+    const range = (n, a, b) => Number.isFinite(n) && n >= a && n <= b,
+      point = (o) =>
+        o &&
+        range(o.x, 0, m.w * 48 - 1) &&
+        range(o.y, 0, m.h * 48 - 1) &&
+        !m.blocked(o.x, o.y),
+      list = (name, max) =>
+        Array.isArray(data?.[name]) ? data[name].slice(0, max) : [];
+    const surfaces = list("surfaces", 32)
+      .filter(
+        (o) =>
+          point(o) &&
+          range(o.radius, 1, 240) &&
+          range(o.dps, 0, 1e5) &&
+          range(o.life, 0.001, 15) &&
+          ["fire", "energy"].includes(o.type),
+      )
+      .map((o) => ({
+        active: true,
+        x: o.x,
+        y: o.y,
+        radius: o.radius,
+        dps: o.dps,
+        life: o.life,
+        maxLife: this.number(o.maxLife, o.life, 15, o.life),
+        type: o.type,
+        tick: this.number(o.tick, 0, 0.1),
+        phase: this.number(o.phase, 0, 7),
+      }));
+    const shots = list("shots", 64)
+      .filter(
+        (s) =>
+          point(s) &&
+          ["sticky", "napalm"].includes(s.payload) &&
+          range(s.vx, -5000, 5000) &&
+          range(s.vy, -5000, 5000) &&
+          range(s.life, 0.001, 15) &&
+          range(s.damage, 0, 1e7) &&
+          range(s.radius, 1, 32) &&
+          range(s.poolRadius, 1, 240) &&
+          range(s.poolDps, 0, 1e5) &&
+          range(s.poolLife, 0.01, 15),
+      )
+      .map((s) => ({
+        x: s.x,
+        y: s.y,
+        oldX: this.number(s.oldX, 0, m.w * 48 - 1, s.x),
+        oldY: this.number(s.oldY, 0, m.h * 48 - 1, s.y),
+        vx: s.vx,
+        vy: s.vy,
+        life: s.life,
+        damage: s.damage,
+        radius: s.radius,
+        range: this.number(s.range, 1, 4000, 800),
+        pierce: 1,
+        blast: this.number(s.blast, 0, 300),
+        color: s.payload === "sticky" ? "#78e4d9" : "#ffc879",
+        type: s.payload === "sticky" ? "energy" : "fire",
+        kind: s.payload === "sticky" ? "plasma" : "napalm",
+        payload: s.payload,
+        poolRadius: s.poolRadius,
+        poolDps: s.poolDps,
+        poolLife: s.poolLife,
+        fuse: this.number(s.fuse, 0.1, 2, 0.8),
+        stuck: s.stuck === true,
+        hostId:
+          Number.isSafeInteger(s.hostId) && s.hostId > 0 && s.hostId <= 1e9
+            ? s.hostId
+            : 0,
+        safeX: this.number(s.safeX, 0, m.w * 48 - 1, s.x),
+        safeY: this.number(s.safeY, 0, m.h * 48 - 1, s.y),
+      }));
+    return { surfaces, shots };
   },
   load() {
     try {

@@ -35,6 +35,8 @@ Object.assign(X.Game.prototype, {
       y,
       r: d.radius,
       type,
+      spawnId: ++this.enemySerial,
+      poolFire: 0,
       hp: d.hp * this.diff.hp * scale * (elite ? 1.65 : 1),
       maxHp: d.hp * this.diff.hp * scale * (elite ? 1.65 : 1),
       elite,
@@ -58,6 +60,7 @@ Object.assign(X.Game.prototype, {
     const p = this.player,
       d = X.enemies[e.type];
     e.age += dt;
+    e.poolFire = Math.max(0, (e.poolFire || 0) - dt);
     e.phase += dt * 8;
     e.attack -= dt;
     e.special -= dt;

@@ -12,6 +12,54 @@ X.Render = {
     this.burnSprites = [0, 1, 2].map((quality) =>
       Array.from({ length: 12 }, (_, frame) => this.burnSprite(frame, quality)),
     );
+    this.surfaceSprites = ["fire", "energy"].map((type) => {
+      const c = document.createElement("canvas");
+      c.width = c.height = 128;
+      const g = c.getContext("2d");
+      const glow = g.createRadialGradient(64, 64, 2, 64, 64, 64);
+      glow.addColorStop(0, type === "fire" ? "#ffe48add" : "#ccffe9dd");
+      glow.addColorStop(0.45, type === "fire" ? "#ee6f2cb0" : "#40e9c5a0");
+      glow.addColorStop(1, "#00000000");
+      g.fillStyle = glow;
+      g.fillRect(0, 0, 128, 128);
+      g.beginPath();
+      for (let i = 0; i <= 48; i++) {
+        const a = (i / 48) * Math.PI * 2,
+          r = 43 + Math.sin(a * 5) * 5 + Math.cos(a * 9) * 3;
+        if (i === 0) g.moveTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
+        else g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
+      }
+      g.closePath();
+      g.fillStyle = type === "fire" ? "#b94623b0" : "#258e91b0";
+      g.strokeStyle = type === "fire" ? "#ffac4d99" : "#9bffe899";
+      g.lineWidth = 2;
+      g.fill();
+      g.stroke();
+      for (let i = 0; i < 28; i++) {
+        const a = i * 2.399,
+          r = 10 + (i % 7) * 6;
+        g.fillStyle =
+          type === "fire"
+            ? i % 2
+              ? "#ffb64a99"
+              : "#d74d2588"
+            : i % 2
+              ? "#98ffe8aa"
+              : "#4ac2ff88";
+        g.beginPath();
+        g.ellipse(
+          64 + Math.cos(a) * r,
+          64 + Math.sin(a) * r,
+          2 + (i % 4),
+          1 + (i % 3),
+          a,
+          0,
+          7,
+        );
+        g.fill();
+      }
+      return c;
+    });
   },
   burnSprite(frame, quality) {
     const c = document.createElement("canvas");
@@ -84,12 +132,12 @@ X.Render = {
     }
     return c;
   },
-  drawBurn(g, e, time) {
+  drawBurn(g, e, time, strength = e.burn) {
     const frames = this.burnSprites[X.profile.settings.quality],
       frame = Math.floor(time * 12 + e.phase * 2) % frames.length,
       scale = (e.r * 2 + 18) / 64;
     g.save();
-    g.globalAlpha = Math.min(1, e.burn / 0.35);
+    g.globalAlpha = Math.min(1, strength / 0.35);
     g.drawImage(
       frames[frame],
       e.x - 48 * scale,
@@ -385,6 +433,33 @@ X.Render = {
           g.drawImage(this.sprites[0], -38, -38, 76, 76);
           g.restore();
         }
+    for (const pool of game.surfaces.items)
+      if (pool.active && visible(pool.x, pool.y, pool.radius + 20)) {
+        g.save();
+        g.translate(pool.x, pool.y);
+        g.rotate(Math.sin(game.time + pool.phase) * 0.08);
+        g.globalAlpha = Math.min(1, pool.life / 0.6);
+        g.drawImage(
+          this.surfaceSprites[pool.type === "fire" ? 0 : 1],
+          -pool.radius,
+          -pool.radius,
+          pool.radius * 2,
+          pool.radius * 2,
+        );
+        if (pool.type === "fire") {
+          const frames = this.burnSprites[X.profile.settings.quality],
+            size = pool.radius * 0.65;
+          for (let i = 0; i < 3; i++)
+            g.drawImage(
+              frames[Math.floor(game.time * 12 + i * 4 + pool.phase) % 12],
+              (i - 1) * pool.radius * 0.4 - size / 2,
+              (i % 2) * pool.radius * 0.35 - size * 0.65,
+              size,
+              size,
+            );
+        }
+        g.restore();
+      }
     for (const [x, y, w, h] of game.level.hazards || []) {
       let active = game.time % 6 > 4;
       g.fillStyle = active ? "#e99e4255" : "#7c783233";
@@ -550,7 +625,8 @@ X.Render = {
           size,
         );
         g.restore();
-        if (e.burn > 0) this.drawBurn(g, e, game.time);
+        if (e.burn > 0 || e.poolFire > 0)
+          this.drawBurn(g, e, game.time, Math.max(e.burn, e.poolFire || 0));
         if (e.elite || d.boss) {
           g.fillStyle = "#1a1015";
           g.fillRect(e.x - 23, e.y - e.r - 15, 46, 4);
@@ -575,6 +651,25 @@ X.Render = {
         g.stroke();
         g.fillStyle = "#f2f4dc";
         g.fillRect(s.x - 1, s.y - 1, 3, 3);
+        if (s.payload) {
+          g.fillStyle = s.payload === "sticky" ? "#78efcf" : "#ffb763";
+          g.beginPath();
+          g.arc(s.x, s.y, s.radius, 0, 7);
+          g.fill();
+          if (s.stuck) {
+            g.strokeStyle = "#d6fff2";
+            g.lineWidth = 2;
+            g.beginPath();
+            g.arc(
+              s.x,
+              s.y,
+              s.radius + 5,
+              -Math.PI / 2,
+              -Math.PI / 2 + Math.PI * 2 * Math.max(0, s.life / s.fuse),
+            );
+            g.stroke();
+          }
+        }
       }
     g.globalAlpha = 1;
     for (let i = game.blasts.length - 1; i >= 0; i--) {
@@ -669,7 +764,7 @@ X.Render = {
           continue;
         }
         g.strokeStyle = b.color;
-        g.lineWidth = 3;
+        g.lineWidth = b.width || 3;
         g.beginPath();
         g.moveTo(b.x, b.y);
         g.lineTo(

@@ -243,7 +243,42 @@ X.UI = {
     mark(l.exit, "#7fffc7");
     l.targets.forEach((a) => mark(a, "#ffad65"));
   },
+  modeBranchInfo(w, level, alt) {
+    const spec = X.Armory.definitions[w.id],
+      maxed = level >= X.Armory.max,
+      next = {
+        ...X.profile,
+        [alt ? "weaponTuning" : "weaponMods"]: {
+          ...(alt ? X.profile.weaponTuning : X.profile.weaponMods),
+          [w.id]: Math.min(X.Armory.max, level + 1),
+        },
+      },
+      unit = w.id === "shotgun" && !alt ? "Урон одной дробины. " : "",
+      note =
+        w.id === "flame" && !alt
+          ? " Урон последующего горения не меняется."
+          : "";
+    return (
+      '<div class="' +
+      (alt ? "weapon-tuning-info" : "weapon-mod-info") +
+      '"><b>' +
+      (alt ? "Б · ПКМ · " : "А · ЛКМ · ") +
+      spec[alt ? "b" : "a"] +
+      " · " +
+      level +
+      "/5</b><br>" +
+      spec[alt ? "descB" : "descA"] +
+      "<br><strong>" +
+      unit +
+      X.Armory.summary(w, alt) +
+      (maxed ? " · максимум" : " → " + X.Armory.summary(w, alt, next)) +
+      '</strong><br><span class="small">Магазин общий для А и Б. Учтён имплант, значения до сопротивлений цели.' +
+      note +
+      "</span></div>"
+    );
+  },
   weaponModInfo(w, level) {
+    if (X.Armory.has(w)) return this.modeBranchInfo(w, level, false);
     const stats = X.WeaponStats,
       maxed = level >= stats.modMax,
       damage = (n) =>
@@ -283,6 +318,7 @@ X.UI = {
     );
   },
   weaponTuningInfo(w, level) {
+    if (X.Armory.has(w)) return this.modeBranchInfo(w, level, true);
     const stats = X.WeaponStats,
       branch = stats.branch(w),
       maxed = level >= branch.max,
@@ -386,30 +422,38 @@ X.UI = {
             ? this.weaponModInfo(w, mod) +
               B(
                 "mod:" + i,
-                mod >= X.WeaponStats.modMax
+                mod >= (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.modMax)
                   ? "МАКСИМАЛЬНОЕ УСИЛЕНИЕ"
                   : "УЛУЧШИТЬ ДО " +
                       (mod + 1) +
                       "/" +
-                      X.WeaponStats.modMax +
+                      (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.modMax) +
                       " · ₡ " +
                       cost,
-                mod >= X.WeaponStats.modMax || p.credits < cost,
+                mod >=
+                  (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.modMax) ||
+                  p.credits < cost,
               )
             : "") +
           (own
             ? this.weaponTuningInfo(w, tune) +
               B(
                 "tune:" + i,
-                tune >= X.WeaponStats.branch(w).max
+                tune >=
+                  (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.branch(w).max)
                   ? "ВТОРАЯ ВЕТКА: МАКСИМУМ"
                   : "РАЗВИТЬ ДО " +
                       (tune + 1) +
                       "/" +
-                      X.WeaponStats.branch(w).max +
+                      (X.Armory.has(w)
+                        ? X.Armory.max
+                        : X.WeaponStats.branch(w).max) +
                       " · ₡ " +
                       tuneCost,
-                tune >= X.WeaponStats.branch(w).max || p.credits < tuneCost,
+                tune >=
+                  (X.Armory.has(w)
+                    ? X.Armory.max
+                    : X.WeaponStats.branch(w).max) || p.credits < tuneCost,
               )
             : "") +
           "</article>"
@@ -471,7 +515,7 @@ X.UI = {
         (X.Debug.active
           ? "<p>Магазин полигона. Прокачка полностью применяется при следующей высадке. Повторное открытие меню её не сбрасывает.</p>"
           : "") +
-        '<p>Покупка оружия включает три магазина. Усиление: +12% урона за уровень. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
+        '<p>Покупка оружия включает три магазина. У семи тяжёлых пушек ветка А улучшает ЛКМ, Б — отдельную атаку ПКМ. Магазин общий. Здоровье и броня восстанавливаются при высадке.</p><h3>Боеприпасы</h3><div class="cards">' +
         ammo +
         '</div><div class="rule"></div><h3>Импланты</h3><div class="cards">' +
         upgrades +
@@ -730,7 +774,7 @@ X.UI = {
               "</div>",
           )
           .join("") +
-        '<p class="small">ЛКМ — огонь · ПКМ — усиленный режим (двойной расход)<br>Колесо — оружие · 1–9 — слоты · 0 — следующий слот<br>Esc — пауза · потеря фокуса останавливает бой.</p></div></div><div class="rule"></div><p class="small">Экспорт JSON включает активный профиль и три ручные ячейки. Импорт полного экспорта заменяет оба; старый одиночный JSON меняет только активный профиль.</p><div class="row">' +
+        '<p class="small">ЛКМ — основной огонь · ПКМ — альтернативный режим<br>Расход ПКМ зависит от оружия: смотрите описание в магазине.<br>Колесо — оружие · 1–9 — слоты · 0 — следующий слот<br>Esc — пауза · потеря фокуса останавливает бой.</p></div></div><div class="rule"></div><p class="small">Экспорт JSON включает активный профиль и три ручные ячейки. Импорт полного экспорта заменяет оба; старый одиночный JSON меняет только активный профиль.</p><div class="row">' +
         this.button("export", "ЭКСПОРТ JSON") +
         this.button("import", "ИМПОРТ JSON") +
         this.button("reset", "СБРОСИТЬ ПРОГРЕСС") +
@@ -816,7 +860,15 @@ X.UI = {
       g.kills +
       '</span></div><div class="weapon"><div class="hint">' +
       w.name +
-      "</div><strong>" +
+      "</div>" +
+      (X.Armory.has(w)
+        ? '<div class="hint">' +
+          (g.mouse.right
+            ? "ПКМ · " + X.Armory.definitions[w.id].b
+            : "ЛКМ · " + X.Armory.definitions[w.id].a) +
+          "</div>"
+        : "") +
+      "<strong>" +
       (w.ammo
         ? g.ammoStatus().mag + " <small>/ " + g.ammoStatus().total + "</small>"
         : "∞") +
@@ -831,11 +883,7 @@ X.UI = {
           ? "ЗАРЯД " +
             Math.min(
               100,
-              Math.round(
-                (g.charge /
-                  X.WeaponStats.charge(w, X.profile.weaponTuning[w.id] || 0)) *
-                  100,
-              ),
+              Math.round((g.charge / g.weaponCharge(g.mouse.right)) * 100),
             ) +
             "%"
           : X.profile.settings.keys.reload.replace("Key", "") +

@@ -7,6 +7,7 @@ X.Game = class {
     this.shots = new X.Pool(X.C.maxShots);
     this.particles = new X.Pool(X.C.maxParticles);
     this.enemies = new X.Pool(X.C.maxEnemies);
+    this.surfaces = new X.Pool(32);
     this.hash = new X.Hash();
     this.camera = { x: 0, y: 0 };
     this.accumulator = 0;
@@ -64,7 +65,7 @@ X.Game = class {
     this.ammo = { ...X.profile.ammo };
     this.mags = X.weapons.map((w, i) => {
       if (!w.ammo || !X.profile.owned.includes(i)) return 0;
-      let n = Math.min(w.mag, this.ammo[w.ammo]);
+      let n = Math.min(X.Armory.mag(w), this.ammo[w.ammo]);
       this.ammo[w.ammo] -= n;
       return n;
     });
@@ -73,6 +74,8 @@ X.Game = class {
     this.reloadTotal = 0;
     this.charge = 0;
     this.spin = 0;
+    this.pendingBurst = null;
+    this.enemySerial = 0;
     this.moving = false;
     this.time = 0;
     this.kills = 0;
@@ -99,6 +102,7 @@ X.Game = class {
     this.defendTime = 0;
     this.shots.clear();
     this.enemies.clear();
+    this.surfaces.clear();
     this.particles.clear();
     this.loot = [];
     this.marks = [];
@@ -315,6 +319,8 @@ X.Game = class {
     this.repairing = false;
     if (this.keys.has(k.interact)) this.interact(dt);
     if (this.state !== "play") return;
+    if (this.repairing) this.cancelBurst();
+    else this.burstStep(dt);
     this.autoReload();
     if (this.reload > 0) {
       this.reload -= dt;
@@ -331,9 +337,8 @@ X.Game = class {
       let w = X.weapons[this.weapon];
       this.charge += dt;
       if (
-        !w.charge ||
-        this.charge >=
-          X.WeaponStats.charge(w, X.profile.weaponTuning[w.id] || 0)
+        !this.weaponCharge(this.mouse.right) ||
+        this.charge >= this.weaponCharge(this.mouse.right)
       ) {
         this.fire(this.mouse.right);
         this.charge = 0;
@@ -386,6 +391,7 @@ X.Game = class {
     for (const e of this.enemies.items) if (e.active) this.enemyStep(e, dt);
     if (this.state !== "play") return;
     this.projectileStep(dt);
+    this.surfaceStep(dt);
     this.lootStep();
     this.completeWave();
     if (this.level.mode === "defend" && this.objectives.every((o) => o.done))
@@ -478,9 +484,9 @@ X.Game = class {
       });
     }
   }
-  beam(x, y, tx, ty, color) {
+  beam(x, y, tx, ty, color, width = 3) {
     this.beams = this.beams || [];
-    this.beams.push({ x, y, tx, ty, color, life: 0.14 });
+    this.beams.push({ x, y, tx, ty, color, width, life: 0.14 });
     if (this.beams.length > 64) this.beams.shift();
   }
   checkpoint() {
@@ -520,6 +526,14 @@ X.Game = class {
         charge: this.charge,
         spin: this.spin,
       },
+      burstState: this.pendingBurst
+        ? {
+            remaining: this.pendingBurst.remaining,
+            timer: this.pendingBurst.timer,
+            alt: this.pendingBurst.alt,
+          }
+        : null,
+      weaponEffects: this.effectsSnapshot(),
     };
   }
   restore(c) {
@@ -571,11 +585,21 @@ X.Game = class {
         this.addAmmoLoot(l.x, l.y, l.amount);
       else this.loot.push({ ...l });
     }
+    this.enemySerial = Math.max(
+      0,
+      ...c.enemies.map((e) =>
+        Number.isSafeInteger(e.spawnId) ? e.spawnId : 0,
+      ),
+    );
     for (const e of c.enemies) {
       let o = this.enemies.get();
       if (o)
         Object.assign(o, e, {
           active: true,
+          spawnId:
+            Number.isSafeInteger(e.spawnId) && e.spawnId > 0
+              ? e.spawnId
+              : ++this.enemySerial,
           r: X.enemies[e.type].radius,
           pathIndex: -1,
           pathX: e.x,
@@ -589,9 +613,16 @@ X.Game = class {
     this.map.bfs(this.player.x, this.player.y);
     this.map.flow(this.navSmall, this.player.x, this.player.y);
     this.map.flow(this.navBig, this.player.x, this.player.y);
+    this.enemySerial = Math.max(
+      0,
+      ...this.enemies.items.filter((e) => e.active).map((e) => e.spawnId || 0),
+    );
+    this.restoreEffects(c.weaponEffects);
+    this.restoreBurst(c.burstState);
   }
   finish(win, reason = "Боец погиб") {
     if (this.state !== "play") return;
+    this.cancelBurst();
     this.state = win ? "victory" : "dead";
     this.resultReason = reason;
     this.keys.clear();

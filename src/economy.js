@@ -27,7 +27,7 @@ X.Economy = {
       return false;
     return this.spend(w.price, () => {
       X.profile.owned.push(i);
-      X.profile.ammo[w.ammo] += w.mag * 3;
+      X.profile.ammo[w.ammo] += X.Armory.mag(w) * 3;
     });
   },
   ammo(a) {
@@ -54,7 +54,7 @@ X.Economy = {
     if (
       !X.profile.owned.includes(i) ||
       w.debugOnly ||
-      level >= X.WeaponStats.modMax
+      level >= (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.modMax)
     )
       return false;
     return this.spend(
@@ -66,7 +66,8 @@ X.Economy = {
     const w = X.weapons[i];
     if (!w || w.debugOnly || !X.profile.owned.includes(i)) return false;
     const level = X.profile.weaponTuning[w.id] || 0;
-    if (level >= X.WeaponStats.branch(w).max) return false;
+    if (level >= (X.Armory.has(w) ? X.Armory.max : X.WeaponStats.branch(w).max))
+      return false;
     return this.spend(
       Math.round((450 + w.price * 0.25) * Math.pow(1.8, level)),
       () => (X.profile.weaponTuning[w.id] = level + 1),

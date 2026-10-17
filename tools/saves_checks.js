@@ -23,6 +23,7 @@
     g.charge = 1;
     const reserve = g.ammo[X.weapons[i].ammo];
     g.fire(false);
+    if (i === 4) g.burstStep(0.2);
     assert(
       g.mags[i] === 0 && g.reload > 0 && g.charge === 0,
       "last shot does not auto reload " + i,
@@ -93,8 +94,12 @@
   delete legacy.resumeMode;
   delete legacy.checkpoint.weaponState;
   const migrated = X.Save.validate(legacy);
-  assert(migrated.resumeMode === "campaign" && migrated.checkpoint.weaponState.reload === 0, "legacy weapon timers migration");
-  g.start(1,migrated.checkpoint);
+  assert(
+    migrated.resumeMode === "campaign" &&
+      migrated.checkpoint.weaponState.reload === 0,
+    "legacy weapon timers migration",
+  );
+  g.start(1, migrated.checkpoint);
   assert(g.reload === 0 && g.charge === 0, "legacy checkpoint restore");
 
   clean();

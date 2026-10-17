@@ -3,6 +3,7 @@
 Object.assign(X.Game.prototype, {
   switchWeapon(index) {
     if (X.profile.owned.includes(index)) {
+      this.cancelBurst();
       this.weapon = index;
       this.reload = 0;
       this.charge = 0;
@@ -18,6 +19,7 @@ Object.assign(X.Game.prototype, {
     this.switchWeapon(a[(i + dir + a.length) % a.length]);
   },
   beginReload() {
+    this.cancelBurst();
     const w = X.weapons[this.weapon];
     if (w.ammo && this.mags[this.weapon] === 0) this.charge = 0;
     if (w.ammo && X.Debug.enabled("noReload")) {
@@ -28,7 +30,7 @@ Object.assign(X.Game.prototype, {
     if (
       w.ammo &&
       !this.reload &&
-      this.mags[this.weapon] < w.mag &&
+      this.mags[this.weapon] < X.Armory.mag(w) &&
       (this.ammo[w.ammo] > 0 || X.Debug.enabled("ammo"))
     ) {
       this.reload = w.reload * (1 - 0.09 * X.profile.upgrades.reload);
@@ -38,6 +40,7 @@ Object.assign(X.Game.prototype, {
     }
   },
   autoReload() {
+    if (this.pendingBurst) return;
     const w = X.weapons[this.weapon];
     if (w.ammo && this.mags[this.weapon] === 0) {
       this.charge = 0;
@@ -48,8 +51,8 @@ Object.assign(X.Game.prototype, {
     const w = X.weapons[this.weapon];
     if (!w.ammo) return;
     const n = X.Debug.enabled("ammo")
-      ? w.mag - this.mags[this.weapon]
-      : Math.min(w.mag - this.mags[this.weapon], this.ammo[w.ammo]);
+      ? X.Armory.mag(w) - this.mags[this.weapon]
+      : Math.min(X.Armory.mag(w) - this.mags[this.weapon], this.ammo[w.ammo]);
     this.mags[this.weapon] += n;
     if (!X.Debug.enabled("ammo")) this.ammo[w.ammo] -= n;
   },
@@ -67,6 +70,14 @@ Object.assign(X.Game.prototype, {
     if (this.reload > 0) return;
     const base = X.weapons[this.weapon];
     if (base.debugOnly && !X.Debug.active) return;
+    if (X.Armory.has(base)) {
+      this.fireModeWeapon(alt);
+      return;
+    }
+    if (base.kind === "rifle") {
+      this.fireRifle(alt);
+      return;
+    }
     let w = X.WeaponStats.tuned(base, X.profile.weaponTuning[base.id] || 0),
       p = this.player,
       cost = (alt ? 2 : 1) * (w.burst || 1);
@@ -232,17 +243,42 @@ Object.assign(X.Game.prototype, {
       range: w.range,
       bounces: 0,
       wallPierce: !!w.wallPierce,
+      shards: w.shards || 0,
+      shardDamage: w.shardDamage || 0,
+      homing: w.homing || (w.kind === "rocket" ? 2 : 0),
+      seek: w.seek || 300,
+      payload: w.payload || null,
+      poolRadius: w.poolRadius || 0,
+      poolDps: w.poolDps || 0,
+      poolLife: w.poolLife || 0,
+      fuse: w.fuse || 0.8,
+      stuck: false,
+      host: null,
+      hostId: 0,
+      safeX: this.map.blocked(x, y) ? this.player.x : x,
+      safeY: this.map.blocked(x, y) ? this.player.y : y,
     });
     s.hit.clear();
+    return s;
   },
   projectileStep(dt) {
     for (const s of this.shots.items)
       if (s.active) {
         s.life -= dt;
+        if (s.stuck) {
+          if (s.host?.active && s.host.spawnId === s.hostId) {
+            s.x = s.host.x;
+            s.y = s.host.y;
+          }
+          s.oldX = s.x;
+          s.oldY = s.y;
+          if (s.life <= 0) this.finishPayload(s);
+          continue;
+        }
         if (s.kind === "rocket" && !s.enemy) {
           let target = null,
-            best = 300;
-          this.hash.query(s.x, s.y, 300, (e) => {
+            best = s.seek;
+          this.hash.query(s.x, s.y, s.seek, (e) => {
             let d = Math.hypot(e.x - s.x, e.y - s.y),
               dot = (e.x - s.x) * s.vx + (e.y - s.y) * s.vy;
             if (d < best && dot > 0 && this.map.line(s.x, s.y, e.x, e.y)) {
@@ -252,15 +288,15 @@ Object.assign(X.Game.prototype, {
           });
           if (target) {
             let a = Math.atan2(target.y - s.y, target.x - s.x);
-            s.vx += (Math.cos(a) * 450 - s.vx) * dt * 2;
-            s.vy += (Math.sin(a) * 450 - s.vy) * dt * 2;
+            s.vx += (Math.cos(a) * 450 - s.vx) * dt * s.homing;
+            s.vy += (Math.sin(a) * 450 - s.vy) * dt * s.homing;
           }
           this.fx(s.x, s.y, "#c99369", 1, 25);
         }
         let steps = Math.max(1, Math.ceil((Math.hypot(s.vx, s.vy) * dt) / 12));
         s.oldX = s.x;
         s.oldY = s.y;
-        for (let n = 0; n < steps && s.active; n++) {
+        for (let n = 0; n < steps && s.active && !s.stuck; n++) {
           const ox = s.x,
             oy = s.y;
           s.x += (s.vx * dt) / steps;
@@ -271,6 +307,15 @@ Object.assign(X.Game.prototype, {
             s.x < this.map.w * X.C.tile &&
             s.y < this.map.h * X.C.tile;
           if (!inside || (this.map.blocked(s.x, s.y) && !s.wallPierce)) {
+            if (s.payload) {
+              if (s.payload === "sticky") this.attachShot(s);
+              else {
+                s.x = s.safeX;
+                s.y = s.safeY;
+                this.finishPayload(s);
+              }
+              break;
+            }
             if (s.kind === "grenade" && s.bounces < 4) {
               if (this.map.blocked(s.x, oy)) s.vx *= -0.7;
               if (this.map.blocked(ox, s.y)) s.vy *= -0.7;
@@ -284,6 +329,8 @@ Object.assign(X.Game.prototype, {
             s.active = false;
             break;
           }
+          s.safeX = s.x;
+          s.safeY = s.y;
           if (s.enemy) {
             if (
               Math.hypot(s.x - this.player.x, s.y - this.player.y) <
@@ -294,14 +341,18 @@ Object.assign(X.Game.prototype, {
             }
           } else if (s.kind !== "grenade") {
             this.hash.query(s.x, s.y, 65, (e) => {
-              if (!s.active || s.hit.has(e)) return;
+              if (!s.active || s.stuck || s.hit.has(e)) return;
               if (Math.hypot(e.x - s.x, e.y - s.y) < e.r + s.radius) {
                 s.hit.add(e);
-                if (s.blast) {
+                if (s.payload) {
+                  if (s.payload === "sticky") this.attachShot(s, e);
+                  else this.finishPayload(s);
+                } else if (s.blast) {
                   this.explode(s.x, s.y, s.blast, s.damage, false);
                   s.active = false;
                 } else {
                   this.hurtEnemy(e, s.damage, s.type);
+                  this.emitRailShards(s, e);
                   if (s.kind === "flame") e.burn = 3;
                   if (s.kind === "plasma") e.slow = 1.3;
                   if (--s.pierce <= 0) s.active = false;
@@ -309,13 +360,18 @@ Object.assign(X.Game.prototype, {
               }
             });
           }
-          if (!s.enemy)
+          if (s.active && !s.enemy && !s.stuck)
             for (const o of this.objectives)
               if (
                 !o.done &&
                 o.kind === "nest" &&
                 Math.hypot(o.x - s.x, o.y - s.y) < 34
               ) {
+                if (s.payload) {
+                  if (s.payload === "sticky") this.attachShot(s);
+                  else this.finishPayload(s);
+                  break;
+                }
                 o.hp -= s.damage;
                 s.active = false;
                 if (o.hp <= 0) {
@@ -326,14 +382,19 @@ Object.assign(X.Game.prototype, {
                 }
               }
         }
-        if (s.life <= 0) {
+        if (s.life <= 0 && s.active) {
+          if (s.payload) {
+            if (s.payload === "sticky" && !s.stuck) this.attachShot(s);
+            else this.finishPayload(s);
+            continue;
+          }
           if (s.blast && s.active)
             this.explode(s.x, s.y, s.blast, s.damage, s.enemy);
           s.active = false;
         }
       }
   },
-  explode(x, y, r, damage, enemy) {
+  explode(x, y, r, damage, enemy, type = "explosive") {
     this.blasts.push({ x, y, r, life: 0.35 });
     if (this.blasts.length > 20) this.blasts.shift();
     this.fx(x, y, "#ffad59", 32, 230);
@@ -355,7 +416,7 @@ Object.assign(X.Game.prototype, {
       this.hash.query(x, y, r + 50, (e) => {
         let d = Math.hypot(x - e.x, y - e.y);
         if (d < r + e.r && this.map.line(x, y, e.x, e.y))
-          this.hurtEnemy(e, damage * (1 - (0.6 * d) / (r + e.r)), "explosive");
+          this.hurtEnemy(e, damage * (1 - (0.6 * d) / (r + e.r)), type);
       });
     }
   },
