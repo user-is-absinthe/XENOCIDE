@@ -83,6 +83,8 @@ X.Game = class {
     this.time = 0;
     this.kills = 0;
     this.earned = 0;
+    this.creditsAwarded = 0;
+    this.reviveFX = null;
     this.wave = 0;
     this.rewardedWave = 0;
     this.dashHeld = false;
@@ -262,6 +264,10 @@ X.Game = class {
     if (this.state !== "play") return;
     this.clock += dt;
     this.time += dt;
+    if (this.reviveFX) {
+      this.reviveFX.life = Math.max(0, this.reviveFX.life - dt);
+      if (!this.reviveFX.life) this.reviveFX = null;
+    }
     this.gunStep(dt);
     this.cool = Math.max(0, this.cool - dt);
     this.shake = Math.max(0, this.shake - dt * 20);
@@ -405,6 +411,10 @@ X.Game = class {
     for (const e of this.enemies.items) if (e.active) this.enemyStep(e, dt);
     if (this.state !== "play") return;
     this.projectileStep(dt);
+    if (p.hp <= 0 && !this.tryRevive()) {
+      this.finish(false);
+      return;
+    }
     this.surfaceStep(dt);
     this.lootStep();
     this.completeWave();
@@ -442,11 +452,12 @@ X.Game = class {
       this.checkpoint();
       this.checkTimer = 30;
     }
-    if (p.hp <= 0) this.finish(false);
+    if (p.hp <= 0 && !this.tryRevive()) this.finish(false);
   }
   lootStep() {
     const p = this.player,
       picked = {};
+    if (p.hp <= 0) return;
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const l = this.loot[i];
       if (Math.hypot(l.x - p.x, l.y - p.y) >= 35) continue;
@@ -551,6 +562,7 @@ X.Game = class {
           }
         : null,
       weaponEffects: this.effectsSnapshot(),
+      reviveFX: this.reviveFX ? { ...this.reviveFX } : null,
     };
   }
   restore(c) {
@@ -566,7 +578,13 @@ X.Game = class {
       "bossSpawned",
     ])
       if (c[key] !== undefined) this[key] = c[key];
-    this.player = { ...c.player, r: 14, invuln: 2 };
+    this.player = {
+      ...c.player,
+      r: 14,
+      invuln:
+        c.reviveFX?.life > 0 ? Math.max(2, Math.min(3, c.player.invuln)) : 2,
+    };
+    this.reviveFX = c.reviveFX ? { ...c.reviveFX } : null;
     if (c.weaponState)
       for (const key of ["cool", "reload", "reloadTotal", "charge", "spin"])
         this[key] = X.Save.number(
@@ -666,7 +684,6 @@ X.Game = class {
         this.medals.push("МАСТЕР КЛИНКА +" + reward);
       }
       X.profile.stats.medals += this.medals.length;
-      X.profile.credits = Math.min(1e8, X.profile.credits + this.earned);
       for (const a in this.ammo) X.profile.ammo[a] = this.ammo[a];
       for (let i = 0; i < this.mags.length; i++) {
         let a = X.weapons[i].ammo;
@@ -686,6 +703,8 @@ X.Game = class {
         X.profile.endless.best = Math.max(X.profile.endless.best, this.number);
       }
     } else X.profile.stats.deaths++;
+    this.creditsAwarded = win ? this.earned : Math.floor(this.earned * 0.5);
+    X.profile.credits = Math.min(1e8, X.profile.credits + this.creditsAwarded);
     X.Save.write(X.profile);
     X.UI.result(win, reason);
   }

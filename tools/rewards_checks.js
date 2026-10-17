@@ -96,7 +96,10 @@
     g.creditReward(1000);
     const credits = X.profile.credits;
     g.finish(false);
-    assert(X.profile.credits === credits, "defeat pays reward");
+    assert(
+      X.profile.credits === credits + Math.floor(1000 * factor * 0.5),
+      "defeat half reward",
+    );
     report.push({
       difficulty: X.difficulties[difficulty].name,
       factor,

@@ -405,7 +405,8 @@ X.Render = {
       return;
     }
     const p = game.player;
-    let shake = X.profile.settings.shake ? game.shake : 0,
+    let shake =
+        X.profile.settings.shake && game.state === "play" ? game.shake : 0,
       cx =
         Math.max(0, Math.min(game.map.w * 48 - 1152, p.x - 576)) +
         (Math.random() - 0.5) * shake,
@@ -860,8 +861,10 @@ X.Render = {
         );
       }
     const core = game.objectives[0];
+    this.drawRevival(g, game);
     if (core && visible(core.x, core.y)) this.defenseHealth(g, game);
     g.restore();
+    this.revivalFlash(g, game);
     if (game.damageFlash > 0) {
       g.fillStyle = "rgba(180,33,25," + game.damageFlash * 0.3 + ")";
       g.fillRect(0, 0, 1152, 648);

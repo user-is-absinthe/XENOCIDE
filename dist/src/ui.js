@@ -470,18 +470,26 @@ X.UI = {
         let lv = p.upgrades[u.id],
           price = Math.round(u.price * Math.pow(1.65, lv));
         return (
-          '<article class="card"><h3>' +
+          '<article class="card" data-upgrade="' +
+          u.id +
+          '"><h3>' +
           u.name +
           " · " +
-          lv +
-          "/" +
-          u.max +
+          (u.consumable
+            ? lv
+              ? "УСТАНОВЛЕН"
+              : "ОДНОРАЗОВЫЙ"
+            : lv + "/" + u.max) +
           "</h3><p>" +
           u.desc +
           "</p>" +
           B(
             "upgrade:" + u.id,
-            lv >= u.max ? "МАКСИМУМ" : "₡ " + price,
+            lv >= u.max
+              ? u.consumable
+                ? "УСТАНОВЛЕН"
+                : "МАКСИМУМ"
+              : "₡ " + price,
             lv >= u.max || p.credits < price,
           ) +
           "</article>"
@@ -647,7 +655,7 @@ X.UI = {
             ? final
               ? "Кампания завершена. Бесконечная экспедиция разблокирована."
               : g.level.chapter + " · операция продолжается."
-            : "Снаряжение и кредиты до высадки сохранены. Попробуйте другой арсенал или сложность.") +
+            : "Снаряжение до высадки сохранено. Выплачено 50% заработанных в бою кредитов. Использованные одноразовые импланты остаются израсходованными.") +
         '</p><div class="score-summary"><strong>' +
         X.RecordsUI.number(g.scoreResult?.points || 0) +
         "</strong> очков за скорость" +
@@ -670,7 +678,7 @@ X.UI = {
         "</b>уничтожено</div><div><b>" +
         this.time(g.time) +
         "</b>время</div><div><b>" +
-        (win ? g.earned : 0) +
+        g.creditsAwarded +
         "</b>кредиты получены</div><div><b>" +
         g.stats.shots +
         '</b>атак</div></div><p class="small">Коэффициент кредитов сложности: ×' +
@@ -871,7 +879,13 @@ X.UI = {
       (p.dash > 0 ? " · +1 через " + p.dash.toFixed(1) + " с" : " · ГОТОВЫ") +
       " · УБИЙСТВА " +
       g.kills +
-      '</span></div><div class="weapon"><div class="hint">' +
+      "</span>" +
+      (X.profile.upgrades.secondChance
+        ? '<br><span class="hint">ВТОРОЙ ШАНС · ГОТОВ</span>'
+        : g.reviveFX
+          ? '<br><span class="hint">ВТОРОЙ ШАНС · ИЗРАСХОДОВАН</span>'
+          : "") +
+      '</div><div class="weapon"><div class="hint">' +
       w.name +
       "</div>" +
       (X.Armory.has(w)

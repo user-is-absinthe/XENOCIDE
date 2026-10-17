@@ -107,6 +107,6 @@ with sync_playwright() as p:
     assert pg.evaluate('X.Slots.entries[0].profile.checkpoint.gunState.pistolStreak===4&&X.profile.weaponMods.blade===5')
     ctx.close()
     assert not errors and not network,(errors,network)
-    report.update(fullEdgeRestart=True,json=True,version='1.4.1',errors=errors,network=0)
+    report.update(fullEdgeRestart=True,json=True,version='1.5.0',errors=errors,network=0)
     (ART/'field-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
     print(json.dumps(report,ensure_ascii=False),flush=True)

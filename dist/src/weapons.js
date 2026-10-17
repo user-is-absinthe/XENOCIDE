@@ -468,6 +468,7 @@ Object.assign(X.Game.prototype, {
     this.damageFlash = 0.5;
     this.stats.damage += damage;
     X.Audio.play("hurt");
+    if (p.hp <= 0) this.tryRevive();
   },
   hurtEnemy(e, damage, type, armorPierce = false) {
     if (!e.active) return;

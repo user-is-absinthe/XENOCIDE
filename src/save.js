@@ -354,6 +354,10 @@ X.Save = {
           }
         : null;
     clean.weaponEffects = this.weaponEffects(c.weaponEffects, m);
+    clean.reviveFX =
+      c.reviveFX && Number.isFinite(c.reviveFX.life) && c.reviveFX.life > 0
+        ? { life: this.number(c.reviveFX.life, 0, 2.4) }
+        : null;
     clean.gunState = {};
     for (const [key, max] of Object.entries({
       combo: 2,

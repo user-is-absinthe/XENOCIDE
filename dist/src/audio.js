@@ -83,6 +83,7 @@ X.Audio = {
       blade: [600, 120, 0.2, "triangle", 0.2],
       boom: [80, 20, 0.6, "sine", 1],
       pickup: [600, 1300, 0.15, "sine", 0],
+      revive: [160, 1600, 0.8, "sine", 0.08],
       menu: [420, 700, 0.07, "sine", 0],
       reload: [200, 130, 0.16, "triangle", 0.35],
       dash: [400, 80, 0.2, "sine", 0.5],
