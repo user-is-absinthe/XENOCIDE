@@ -1,5 +1,11 @@
 # XENOCIDE
 
+## Demo mode
+
+Choose **ДЕМО** in the main menu and select a difficulty. The computer plays campaign missions 1–20 in a loop, completes objectives, buys weapons, ammunition and upgrades, uses alternate fire, sprint and dash, collects supplies and repairs defense transmitters. Defeat automatically retries the current mission after shopping.
+
+Press **Esc** to pause and return to the main menu. Opening Demo again offers to resume the saved fight or start over. Demo progress is stored separately in the browser; the player's campaign, manual slots and records stay intact. Campaign JSON exports do not include demo progress.
+
 ## Play in your browser
 
 **[▶ Play XENOCIDE](https://user-is-absinthe.github.io/XENOCIDE/)**
@@ -57,6 +63,9 @@ npm run format
 .venv\Scripts\python tools\test.py
 .venv\Scripts\python tools\browser_test.py
 .venv\Scripts\python tools\visual_test.py
+.venv\Scripts\python tools\demo_test.py
+.venv\Scripts\python tools\demo_edge_test.py
+.venv\Scripts\python tools\demo_soak_test.py 3
 ```
 
 `build.py` updates `dist/` and creates a local `XENOCIDE-offline.zip`. `test.py` checks syntax, assets, maps, and build consistency. Browser tests use separate Edge profiles inside `.venv`; reports and screenshots go to `artifacts/`. Development environments, test artifacts, and the build archive are excluded from Git.

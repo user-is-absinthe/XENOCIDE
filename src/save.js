@@ -479,7 +479,7 @@ X.Save = {
     }
   },
   write(p) {
-    if (X.Debug?.active) return;
+    if (X.Debug?.active || X.Demo?.active) return;
     try {
       localStorage.setItem(this.key, JSON.stringify(p));
       this.available = true;
@@ -491,7 +491,7 @@ X.Save = {
     }
   },
   export(p) {
-    if (X.Debug?.active) return;
+    if (X.Debug?.active || X.Demo?.active) return;
     const a = document.createElement("a"),
       url = URL.createObjectURL(
         new Blob(

@@ -146,7 +146,13 @@ X.Scoring = {
     };
   },
   start(g) {
-    if (X.Debug.active || g.number !== 1 || X.profile.campaignRun) return;
+    if (
+      X.Debug.active ||
+      X.Demo?.active ||
+      g.number !== 1 ||
+      X.profile.campaignRun
+    )
+      return;
     X.profile.campaignRun = {
       startedAt: Date.now(),
       next: 1,
@@ -158,7 +164,7 @@ X.Scoring = {
   },
   finish(g, win) {
     const points = win ? this.points(g.number, g.time, g.difficulty) : 0;
-    if (X.Debug.active) return { points, test: true };
+    if (X.Debug.active || X.Demo?.active) return { points, test: true };
     const p = X.profile,
       records = p.records,
       run = p.campaignRun;
