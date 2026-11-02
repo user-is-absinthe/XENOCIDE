@@ -13,7 +13,18 @@ with sync_playwright() as p:
       X.profile.settings.darkMode=true;
       if (!X.Save.validate(X.profile).settings.darkMode) throw Error('dark mode save');
       X.UI.settings();
-      if (!document.querySelector('[data-setting="darkMode"]')) throw Error('toggle missing');
+      if (document.querySelector('[data-setting="darkMode"]')) throw Error('toggle still in settings');
+      for (const show of [()=>X.UI.setup(),()=>X.UI.brief(1),()=>X.UI.brief(21),()=>X.UI.demo(),()=>X.UI.debug()]) {
+        show();
+        const toggle=document.querySelector('[data-setting="darkMode"]');
+        const difficulty=document.querySelector('#difficulty, #demo-difficulty');
+        if (!toggle || !difficulty.parentElement.contains(toggle)) throw Error('toggle not beside difficulty: '+X.UI.screen);
+        toggle.checked=false;toggle.dispatchEvent(new Event('change',{bubbles:true}));
+        if (X.profile.settings.darkMode) throw Error('toggle off failed');
+        toggle.checked=true;toggle.dispatchEvent(new Event('change',{bubbles:true}));
+        if (!X.profile.settings.darkMode) throw Error('toggle on failed');
+      }
+      X.Debug.leave();
       const c=document.createElement('canvas');c.width=1152;c.height=648;
       const ctx=c.getContext('2d',{alpha:false});
       const fake={player:{x:576,y:324,angle:0},weapon:1,muzzle:0,shots:{items:[]},surfaces:{items:[]},blasts:[],beams:[],enemies:{items:[]}};
@@ -35,7 +46,7 @@ with sync_playwright() as p:
       X.profile.settings.darkMode=true;X.Render.draw(X.game,0);X.game.state="pause";X.UI.hide();document.getElementById("toast").classList.remove("visible");
       return {center,edge,ahead,behind,plasma,fire,version:X.version};
     }''')
-    page.screenshot(path=str(root/'artifacts/dark-mode-185.png'))
+    page.screenshot(path=str(root/'artifacts/dark-mode-186.png'))
     assert not errors,errors
     print('PASS',result)
     browser.close()

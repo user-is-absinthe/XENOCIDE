@@ -159,6 +159,13 @@ X.UI = {
       "confirm",
     );
   },
+  darkModeControl() {
+    return (
+      '<label for="dark-mode" title="Теперь лабиринты базы стали по-настоящему тёмными и пугающими.">Dark mode</label><input id="dark-mode" type="checkbox" data-setting="darkMode" ' +
+      (X.profile.settings.darkMode ? "checked" : "") +
+      ">"
+    );
+  },
   demo() {
     const saved = X.Demo.load();
     this.show(
@@ -183,6 +190,7 @@ X.UI = {
           X.difficulties.map((d) => d.name),
           saved?.profile.difficulty ?? X.profile.difficulty,
         ) +
+        this.darkModeControl() +
         '</div><p class="small">Новая демонстрация начинается с первого сектора и заменяет прежнее демо. Её прогресс сохраняется отдельно от вашей кампании и рекордов.</p><div class="row">' +
         this.button("demoBegin", "НАЧАТЬ ДЕМО ЗАНОВО", !saved) +
         this.button("menu", "НАЗАД") +
@@ -198,6 +206,7 @@ X.UI = {
           X.difficulties.map((d) => d.name),
           X.profile.difficulty,
         ) +
+        this.darkModeControl() +
         '</div><p>Лёгкая — знакомство. Нормальная — основная кампания. Сложная и Кошмар увеличивают натиск и уменьшают ресурсы.</p><div class="row">' +
         this.button("begin", "НАЧАТЬ ОПЕРАЦИЮ", true) +
         this.button("menu", "НАЗАД") +
@@ -247,6 +256,7 @@ X.UI = {
           X.difficulties.map((d) => d.name),
           X.profile.difficulty,
         ) +
+        this.darkModeControl() +
         '</div><p class="small">' +
         l.waves +
         " волн · задачи: " +
@@ -654,7 +664,15 @@ X.UI = {
         X.profile.credits +
         '</span></h2><p>При каждом входе: 500 000 кредитов и нулевая прокачка бойца/обеих веток оружия. Все 20 карт и открытая арена доступны. Читы и прогресс полигона не записываются в сохранение кампании.</p><section class="debug-supply"><h3>Снабжение и ручная прокачка</h3><p class="small">Соберите свой вариант развития через обычные покупки.</p>' +
         this.button("shop", "МАГАЗИН ПОЛИГОНА · ПРОКАЧКА", true) +
-        '</section><section class="debug-cheats"><h3>Читы для испытаний</h3><div class="row">' +
+        '</section><div class="row"><label>Сложность</label>' +
+        this.select(
+          "difficulty",
+          X.difficulties.map((d) => d.name),
+          X.profile.difficulty,
+          X.game.state === "pause",
+        ) +
+        this.darkModeControl() +
+        '</div><section class="debug-cheats"><h3>Читы для испытаний</h3><div class="row">' +
         this.button("cheat:CREDITS", "CREDITS · +10 000 ₡") +
         this.button("cheat:ARSENAL", "ARSENAL · ВЕСЬ АРСЕНАЛ") +
         this.button("cheat:MAXWEAPONS", "MAXWEAPONS · ПОЛНАЯ ПРОКАЧКА ОРУЖИЯ") +
@@ -802,9 +820,6 @@ X.UI = {
         '</div><div class="row"><label>Качество</label>' +
         this.select("quality", ["Низкое", "Среднее", "Высокое"], s.quality) +
         "</div>" +
-        '<div class="row"><label>Dark mode<br><span class="small">Теперь лабиринты базы стали по-настоящему тёмными и пугающими.</span></label><input type="checkbox" data-setting="darkMode" ' +
-        (s.darkMode ? "checked" : "") +
-        "></div>" +
         ["lights", "blood", "shake", "mute", "musicEnabled"]
           .map(
             (k, i) =>
