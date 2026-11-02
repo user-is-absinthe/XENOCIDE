@@ -98,6 +98,7 @@ X.RecordsUI = {
               (X.difficulties[r.difficulty]?.name || "Смешанная") +
               '<br><span class="small">' +
               this.pace(r.pace) +
+              (r.darkMode ? " · Dark mode ×1,25" : "") +
               "</span></td><td>" +
               E(new Date(r.date).toLocaleDateString("ru-RU")) +
               "</td></tr>",

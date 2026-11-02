@@ -37,6 +37,7 @@ X.Game = class {
     this.rng = new X.RNG(4111 + number * 7919);
     this.visualRng = new X.RNG(number * 13 + 99);
     this.difficulty = X.profile.difficulty;
+    this.darkRun = !!X.profile.settings.darkMode;
     this.pace = X.profile.settings.pace;
     this.diff = X.difficulties[this.difficulty];
     X.profile.resumeMode = number > 20 ? "endless" : "campaign";
@@ -137,7 +138,13 @@ X.Game = class {
     X.UI.toast(this.level.brief, 6000);
   }
   creditReward(base) {
-    const amount = Math.round(base * this.diff.economy);
+    const amount = Math.round(
+      base *
+        this.diff.economy *
+        (this.darkRun && X.profile.settings.darkMode
+          ? X.Scoring.rules.darkMode
+          : 1),
+    );
     this.earned += amount;
     return amount;
   }
@@ -264,6 +271,7 @@ X.Game = class {
   update(dt) {
     X.Demo?.tick(this, dt);
     if (this.state !== "play") return;
+    if (!X.profile.settings.darkMode) this.darkRun = false;
     this.clock += dt;
     this.time += dt;
     if (this.reviveFX) {
@@ -306,7 +314,12 @@ X.Game = class {
       Math.min(
         p.maxStamina,
         p.stamina +
-          (sprint ? -32 : X.PlayerStats.staminaRegen(X.profile.upgrades)) * dt,
+          (sprint
+            ? -32
+            : this.keys.has(k.sprint)
+              ? 0
+              : X.PlayerStats.staminaRegen(X.profile.upgrades)) *
+            dt,
       ),
     );
     if (p.dashCharges < p.maxDashCharges) {
@@ -530,6 +543,7 @@ X.Game = class {
   snapshot() {
     return {
       number: this.number,
+      darkRun: this.darkRun,
       time: this.time,
       player: { ...this.player },
       weapon: this.weapon,
@@ -573,6 +587,7 @@ X.Game = class {
     };
   }
   restore(c) {
+    this.darkRun = c.darkRun === true && !!X.profile.settings.darkMode;
     for (const key of [
       "time",
       "weapon",
@@ -665,6 +680,7 @@ X.Game = class {
   }
   finish(win, reason = "Боец погиб") {
     if (this.state !== "play") return;
+    if (!X.profile.settings.darkMode) this.darkRun = false;
     this.cancelBurst();
     this.state = win ? "victory" : "dead";
     this.resultReason = reason;

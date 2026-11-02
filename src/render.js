@@ -3,6 +3,148 @@ X.Render = {
   canvas: document.getElementById("game"),
   sprites: [],
   floor: null,
+  lighting(g, game, cx, cy) {
+    const dark = X.profile.settings.darkMode;
+    if (!dark && !X.profile.settings.lights) return;
+    const lights = [],
+      p = game.player;
+    const add = (x, y, radius, color, power = 1) => {
+      if (
+        x + radius < cx ||
+        y + radius < cy ||
+        x - radius > cx + 1152 ||
+        y - radius > cy + 648
+      )
+        return;
+      lights.push({ x, y, radius, color, power });
+    };
+    const color = (kind) =>
+      ["plasma", "rail"].includes(kind)
+        ? "#438dff"
+        : kind === "tesla"
+          ? "#b294ff"
+          : ["flame", "napalm"].includes(kind)
+            ? "#ff3426"
+            : "#ffb75e";
+    if (game.muzzle > 0)
+      add(
+        p.x + Math.cos(p.angle) * 38,
+        p.y + Math.sin(p.angle) * 38,
+        180,
+        color(X.weapons[game.weapon].kind),
+        Math.min(1, game.muzzle / 0.035) *
+          (["flame", "plasma"].includes(X.weapons[game.weapon].kind)
+            ? (game.muzzleLightScale ?? 1)
+            : 1),
+      );
+    for (const s of game.shots.items)
+      if (
+        s.active &&
+        ["plasma", "flame", "napalm", "rail", "rocket"].includes(s.kind)
+      ) {
+        const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
+        add(
+          s.x,
+          s.y,
+          soft
+            ? s.kind === "flame"
+              ? 65
+              : 85
+            : s.kind === "rocket"
+              ? 95
+              : 130,
+          color(s.kind),
+          soft ? (s.kind === "flame" ? 0.16 : 0.28) : 0.7,
+        );
+      }
+    for (const s of game.surfaces.items)
+      if (s.active)
+        add(
+          s.x,
+          s.y,
+          s.radius + 115,
+          s.type === "fire" ? "#ff3426" : "#438dff",
+          Math.min(0.85, s.life / 0.6),
+        );
+    for (const b of game.blasts)
+      add(
+        b.x,
+        b.y,
+        Math.max(180, b.r * 1.8),
+        "#ffb05e",
+        Math.min(1, b.life / 0.25),
+      );
+    for (const b of game.beams || []) {
+      for (let i = 0; i <= 4; i++)
+        add(
+          b.x + ((b.tx - b.x) * i) / 4,
+          b.y + ((b.ty - b.y) * i) / 4,
+          95,
+          b.color,
+          Math.min(0.55, b.life * 5),
+        );
+    }
+    for (const e of game.enemies.items)
+      if (e.active && (e.burn > 0 || e.poolFire > 0))
+        add(e.x, e.y, 100, "#ff3426", 0.5);
+    const radial = (ctx, x, y, radius, inner, outer) => {
+      const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+      gradient.addColorStop(0, inner);
+      gradient.addColorStop(0.35, inner);
+      gradient.addColorStop(1, outer);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    };
+    if (dark) {
+      // Erase light from a transparent mask, never from the opaque world canvas.
+      if (!this.darkCanvas) {
+        this.darkCanvas = document.createElement("canvas");
+        this.darkCanvas.width = 1152;
+        this.darkCanvas.height = 648;
+      }
+      const mask = this.darkCanvas.getContext("2d");
+      mask.setTransform(1, 0, 0, 1, 0, 0);
+      mask.globalCompositeOperation = "source-over";
+      mask.clearRect(0, 0, 1152, 648);
+      mask.fillStyle = "#010309f5";
+      mask.fillRect(0, 0, 1152, 648);
+      mask.translate(-cx, -cy);
+      mask.globalCompositeOperation = "destination-out";
+      radial(mask, p.x, p.y, 290, "#000000", "#00000000");
+      // Overlapping soft spots make a cone with feathered sides and tip.
+      for (let i = 1; i <= 12; i++) {
+        mask.globalAlpha = 0.48 * (1 - i / 15);
+        radial(
+          mask,
+          p.x + Math.cos(p.angle) * i * 42,
+          p.y + Math.sin(p.angle) * i * 42,
+          28 + i * 8,
+          "#000000",
+          "#00000000",
+        );
+      }
+      for (const light of lights) {
+        mask.globalAlpha = light.power;
+        radial(mask, light.x, light.y, light.radius, "#000000", "#00000000");
+      }
+      mask.globalAlpha = 1;
+      g.drawImage(this.darkCanvas, cx, cy);
+    }
+    g.save();
+    g.globalCompositeOperation = "screen";
+    for (const light of lights) {
+      g.globalAlpha = light.power * 0.32;
+      radial(
+        g,
+        light.x,
+        light.y,
+        light.radius,
+        light.color,
+        light.color + "00",
+      );
+    }
+    g.restore();
+  },
   init() {
     this.ctx = this.canvas.getContext("2d", { alpha: false });
     this.ctx.imageSmoothingEnabled = false;
@@ -17,8 +159,8 @@ X.Render = {
       c.width = c.height = 128;
       const g = c.getContext("2d");
       const glow = g.createRadialGradient(64, 64, 2, 64, 64, 64);
-      glow.addColorStop(0, type === "fire" ? "#ffe48add" : "#ccffe9dd");
-      glow.addColorStop(0.45, type === "fire" ? "#ee6f2cb0" : "#40e9c5a0");
+      glow.addColorStop(0, type === "fire" ? "#ffe48add" : "#bdd8ffdd");
+      glow.addColorStop(0.45, type === "fire" ? "#ee6f2cb0" : "#438dffa0");
       glow.addColorStop(1, "#00000000");
       g.fillStyle = glow;
       g.fillRect(0, 0, 128, 128);
@@ -30,8 +172,8 @@ X.Render = {
         else g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
       }
       g.closePath();
-      g.fillStyle = type === "fire" ? "#b94623b0" : "#258e91b0";
-      g.strokeStyle = type === "fire" ? "#ffac4d99" : "#9bffe899";
+      g.fillStyle = type === "fire" ? "#b94623b0" : "#234da3b0";
+      g.strokeStyle = type === "fire" ? "#ffac4d99" : "#8ebdff99";
       g.lineWidth = 2;
       g.fill();
       g.stroke();
@@ -44,7 +186,7 @@ X.Render = {
               ? "#ffb64a99"
               : "#d74d2588"
             : i % 2
-              ? "#98ffe8aa"
+              ? "#98c4ffaa"
               : "#4ac2ff88";
         g.beginPath();
         g.ellipse(
@@ -453,7 +595,7 @@ X.Render = {
             Math.sin(game.time * (pool.type === "fire" ? 7 : 4) + pool.phase);
         g.globalAlpha *=
           pool.type === "fire" ? 0.18 + pulse * 0.16 : 0.12 + pulse * 0.2;
-        g.strokeStyle = pool.type === "fire" ? "#ffd06a" : "#9affef";
+        g.strokeStyle = pool.type === "fire" ? "#ffd06a" : "#9ac5ff";
         g.lineWidth = pool.type === "fire" ? 3 : 2;
         g.setLineDash(pool.type === "fire" ? [5, 7] : [3, 6]);
         g.beginPath();
@@ -468,7 +610,7 @@ X.Render = {
         g.setLineDash([]);
         const sparks = pool.type === "fire" ? 5 : 7;
         g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.35 + pulse * 0.35);
-        g.fillStyle = pool.type === "fire" ? "#ffca70" : "#87ffe9";
+        g.fillStyle = pool.type === "fire" ? "#ffca70" : "#87b9ff";
         for (let i = 0; i < sparks; i++) {
           const a =
             i * ((Math.PI * 2) / sparks) +
@@ -696,18 +838,25 @@ X.Render = {
     for (const s of game.shots.items)
       if (s.active && visible(s.x, s.y)) {
         // Chunky hot core + crisp pixel tracer, tuned for the game's canvas palette.
+        const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
         g.save();
         g.strokeStyle = s.color;
         g.lineWidth =
           s.kind === "rail" ? 5 : s.kind === "flame" ? 12 : s.radius * 1.4;
-        g.globalAlpha = s.kind === "flame" ? 0.5 : 1;
+        g.globalAlpha = soft
+          ? s.kind === "flame"
+            ? 0.32
+            : 0.75
+          : s.kind === "flame"
+            ? 0.5
+            : 1;
         g.beginPath();
         g.moveTo(s.oldX, s.oldY);
         g.lineTo(s.x - s.vx * 0.013, s.y - s.vy * 0.013);
         g.stroke();
-        g.globalAlpha = 0.32;
+        g.globalAlpha = soft ? 0.1 : 0.32;
         g.strokeStyle = s.color;
-        g.lineWidth = Math.max(1, s.radius * 3.2);
+        g.lineWidth = Math.max(1, s.radius * (soft ? 1.8 : 3.2));
         g.beginPath();
         g.moveTo(s.oldX, s.oldY);
         g.lineTo(s.x, s.y);
@@ -902,7 +1051,7 @@ X.Render = {
         g.fillRect(o.x, o.y, o.size, o.size);
       }
     g.globalAlpha = 1;
-    if (X.profile.settings.lights) {
+    if (X.profile.settings.lights && !X.profile.settings.darkMode) {
       let gradient = g.createRadialGradient(p.x, p.y, 100, p.x, p.y, 680);
       gradient.addColorStop(0, "#00000000");
       gradient.addColorStop(1, "#02050caf");
@@ -925,6 +1074,7 @@ X.Render = {
       g.fill();
       g.globalCompositeOperation = "source-over";
     }
+    this.lighting(g, game, cx, cy);
     // Метка цели поверх существ и освещения, но в мировых координатах.
     for (const e of game.enemies.items)
       if (

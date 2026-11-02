@@ -36,6 +36,7 @@ X.Save = {
       settings: {
         quality: 1,
         lights: true,
+        darkMode: false,
         blood: true,
         shake: true,
         music: 0.2,
@@ -130,7 +131,14 @@ X.Save = {
     d.endless.seed = Math.floor(num(s.endless?.seed, 1, 4294967295, 12345));
     const settings = s.settings || {};
     d.settings.quality = Math.floor(num(settings.quality, 0, 2, 1));
-    for (const k of ["lights", "blood", "shake", "mute", "musicEnabled"])
+    for (const k of [
+      "lights",
+      "darkMode",
+      "blood",
+      "shake",
+      "mute",
+      "musicEnabled",
+    ])
       if (typeof settings[k] === "boolean") d.settings[k] = settings[k];
     for (const k of ["music", "sfx"])
       d.settings[k] = num(settings[k], 0, 1, d.settings[k]);
@@ -385,6 +393,7 @@ X.Save = {
         e[key] = this.number(e[key], 0, 12);
       e.weakFactor = this.number(e.weakFactor, 1, 1.5, 1);
     }
+    clean.darkRun = c.darkRun === true;
     return clean;
   },
   weaponEffects(data, m) {
