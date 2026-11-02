@@ -447,6 +447,44 @@ X.Render = {
           pool.radius * 2,
           pool.radius * 2,
         );
+        const pulse =
+          0.5 +
+          0.5 *
+            Math.sin(game.time * (pool.type === "fire" ? 7 : 4) + pool.phase);
+        g.globalAlpha *=
+          pool.type === "fire" ? 0.18 + pulse * 0.16 : 0.12 + pulse * 0.2;
+        g.strokeStyle = pool.type === "fire" ? "#ffd06a" : "#9affef";
+        g.lineWidth = pool.type === "fire" ? 3 : 2;
+        g.setLineDash(pool.type === "fire" ? [5, 7] : [3, 6]);
+        g.beginPath();
+        g.arc(
+          0,
+          0,
+          pool.radius * (0.62 + pulse * 0.08),
+          game.time * 0.45 + pool.phase,
+          game.time * 0.45 + pool.phase + Math.PI * (1.15 + pulse * 0.5),
+        );
+        g.stroke();
+        g.setLineDash([]);
+        const sparks = pool.type === "fire" ? 5 : 7;
+        g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.35 + pulse * 0.35);
+        g.fillStyle = pool.type === "fire" ? "#ffca70" : "#87ffe9";
+        for (let i = 0; i < sparks; i++) {
+          const a =
+            i * ((Math.PI * 2) / sparks) +
+            pool.phase +
+            game.time * (pool.type === "fire" ? 0.3 : -0.22);
+          const d =
+            pool.radius *
+            (0.35 + 0.1 * Math.sin(game.time * 3 + i + pool.phase));
+          const size = pool.type === "fire" ? 3 : 2 + (i % 2);
+          g.fillRect(
+            Math.round((Math.cos(a) * d) / 2) * 2,
+            Math.round((Math.sin(a) * d) / 2) * 2,
+            size,
+            size,
+          );
+        }
         if (pool.type === "fire") {
           const frames = this.burnSprites[X.profile.settings.quality],
             size = pool.radius * 0.65;
@@ -458,6 +496,21 @@ X.Render = {
               size,
               size,
             );
+        } else {
+          g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.22 + pulse * 0.24);
+          g.strokeStyle = "#b2fff4";
+          g.lineWidth = 2;
+          g.beginPath();
+          g.ellipse(
+            0,
+            0,
+            pool.radius * (0.28 + pulse * 0.08),
+            pool.radius * 0.14,
+            -game.time * 0.4,
+            0,
+            Math.PI * 2,
+          );
+          g.stroke();
         }
         g.restore();
       }
