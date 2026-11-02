@@ -915,6 +915,7 @@ X.UI = {
           ? " FPS · ПОЛИГОН · "
           : " FPS · ") +
       X.difficulties[X.profile.difficulty].name +
+      (g.difficulty === 3 ? " · ФОНАРЬ" : "") +
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
       " · карта<br>Очки за текущий темп: " +

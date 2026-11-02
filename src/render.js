@@ -925,6 +925,52 @@ X.Render = {
       g.fill();
       g.globalCompositeOperation = "source-over";
     }
+    if (game.difficulty === 3) {
+      const radius = 260;
+      g.save();
+      g.globalCompositeOperation = "source-over";
+      g.fillStyle = "#02040bef";
+      g.fillRect(cx, cy, 1152, 648);
+      // Remove darkness around the survivor; transparency fades smoothly at the rim.
+      g.globalCompositeOperation = "destination-out";
+      const sight = g.createRadialGradient(p.x, p.y, radius * 0.52, p.x, p.y, radius);
+      sight.addColorStop(0, "#000000");
+      sight.addColorStop(0.72, "#000000");
+      sight.addColorStop(0.9, "#00000099");
+      sight.addColorStop(1, "#000000f2");
+      g.fillStyle = sight;
+      g.fillRect(p.x - radius, p.y - radius, radius * 2, radius * 2);
+      // The torch cuts a soft, long cone through the darkness in the facing direction.
+      const reach = 760,
+        halfAngle = 0.31;
+      g.beginPath();
+      g.moveTo(p.x, p.y);
+      g.arc(p.x, p.y, reach, p.angle - halfAngle, p.angle + halfAngle);
+      g.closePath();
+      g.clip();
+      const beam = g.createRadialGradient(p.x, p.y, 36, p.x, p.y, reach);
+      beam.addColorStop(0, "#000000");
+      beam.addColorStop(0.72, "#000000");
+      beam.addColorStop(0.9, "#00000099");
+      beam.addColorStop(1, "#000000f2");
+      g.fillStyle = beam;
+      g.fillRect(p.x - reach, p.y - reach, reach * 2, reach * 2);
+      g.restore();
+      // Subtle torch tint remains visible without washing out the black edge.
+      g.save();
+      g.globalCompositeOperation = "screen";
+      const tint = g.createRadialGradient(p.x, p.y, 36, p.x, p.y, reach);
+      tint.addColorStop(0, "#9dd9ef1f");
+      tint.addColorStop(0.72, "#9dd9ef14");
+      tint.addColorStop(1, "#9dd9ef00");
+      g.fillStyle = tint;
+      g.beginPath();
+      g.moveTo(p.x, p.y);
+      g.arc(p.x, p.y, reach, p.angle - halfAngle, p.angle + halfAngle);
+      g.closePath();
+      g.fill();
+      g.restore();
+    }
     // Метка цели поверх существ и освещения, но в мировых координатах.
     for (const e of game.enemies.items)
       if (
