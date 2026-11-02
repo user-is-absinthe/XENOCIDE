@@ -8,82 +8,134 @@ X.Loot = {
   quantity(type, amount, diff) {
     return Math.ceil(X.ammo[type].pack * 0.22 * amount * diff.loot);
   },
-  drawIcon(g, x, y, type, scale = 1) {
-    g.save();
-    g.translate(x, y);
-    g.scale(scale, scale);
-    g.fillStyle = "#07121bdd";
-    g.fillRect(-15, -14, 30, 29);
-    g.strokeStyle = X.ammo[type].color;
-    g.lineWidth = 1;
-    g.strokeRect(-15.5, -14.5, 31, 30);
-    if (type === "light" || type === "heavy") {
-      const heavy = type === "heavy";
-      for (let i = 0; i < (heavy ? 2 : 3); i++) {
-        let px = (heavy ? -8 : -10) + i * (heavy ? 10 : 7);
-        g.fillStyle = heavy ? "#9dbe89" : "#eac581";
-        g.fillRect(px, -4, heavy ? 7 : 5, heavy ? 14 : 10);
-        g.beginPath();
-        g.moveTo(px, -4);
-        g.lineTo(px + (heavy ? 3.5 : 2.5), heavy ? -12 : -9);
-        g.lineTo(px + (heavy ? 7 : 5), -4);
-        g.fill();
-        g.fillStyle = "#80613d";
-        g.fillRect(px, heavy ? 8 : 5, heavy ? 7 : 5, 3);
+  icons: {},
+  icon(type) {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 48;
+    const g = canvas.getContext("2d");
+    g.translate(24, 24);
+    g.fillStyle = "#00000080";
+    g.beginPath();
+    g.ellipse(1, 11, 17, 7, 0, 0, 7);
+    g.fill();
+    const panel = (x, y, w, h, color) => {
+      g.fillStyle = "#0a1115";
+      g.fillRect(x - 1, y - 1, w + 2, h + 2);
+      g.fillStyle = color;
+      g.fillRect(x, y, w, h);
+      const shade = g.createLinearGradient(x, y, x + w, y + h);
+      shade.addColorStop(0, "#c7c5ab40");
+      shade.addColorStop(0.4, "#00000000");
+      shade.addColorStop(1, "#01070bb0");
+      g.fillStyle = shade;
+      g.fillRect(x, y, w, h);
+      g.fillStyle = "#bdc2aa55";
+      g.fillRect(x + 1, y, w - 2, 1);
+    };
+    if (["light", "heavy", "shell"].includes(type)) {
+      panel(-14, -10, 28, 23, type === "shell" ? "#514341" : "#414d42");
+      g.fillStyle = "#141e20";
+      g.fillRect(-11, -7, 22, 16);
+      const heavy = type === "heavy",
+        count = heavy ? 2 : 3;
+      for (let i = 0; i < count; i++) {
+        const x = -9 + i * (heavy ? 10 : 7),
+          w = heavy ? 7 : 5;
+        panel(
+          x,
+          -5,
+          w,
+          13,
+          type === "shell" ? "#78443b" : heavy ? "#797963" : "#a08c60",
+        );
+        g.fillStyle = type === "shell" ? "#ad9867" : "#b7ac83";
+        g.fillRect(x, -7, w, 3);
+        g.fillRect(x, 6, w, 2);
+        g.fillStyle = "#d1c59b55";
+        g.fillRect(x + 1, -4, 1, 9);
       }
-    } else if (type === "shell") {
-      for (const px of [-10, 2]) {
-        g.fillStyle = "#bc5149";
-        g.fillRect(px, -9, 8, 15);
-        g.fillStyle = "#f0c16c";
-        g.fillRect(px, 5, 8, 5);
-        g.fillStyle = "#ee9c80";
-        g.fillRect(px + 1, -7, 2, 10);
-      }
+      g.fillStyle = "#89917c";
+      g.fillRect(-13, 10, 26, 2);
+      g.fillStyle = "#202b29";
+      g.fillRect(-12, -12, 24, 3);
     } else if (type === "fuel") {
-      g.fillStyle = "#c78555";
-      g.fillRect(-9, -8, 17, 19);
-      g.fillStyle = "#f0bb73";
-      g.fillRect(-7, -12, 10, 4);
-      g.strokeStyle = "#eee1a2";
+      panel(-10, -9, 20, 23, "#67553c");
+      g.strokeStyle = "#9a9679";
+      g.lineWidth = 3;
+      g.strokeRect(-5, -14, 10, 6);
+      g.fillStyle = "#171e20";
+      g.fillRect(5, -11, 6, 3);
+      g.strokeStyle = "#343b31";
       g.lineWidth = 2;
-      g.strokeRect(-3, -2, 5, 7);
       g.beginPath();
-      g.moveTo(5, -10);
-      g.lineTo(11, -8);
-      g.lineTo(11, 6);
+      g.moveTo(-6, -3);
+      g.lineTo(6, 9);
+      g.moveTo(6, -3);
+      g.lineTo(-6, 9);
       g.stroke();
+      g.fillStyle = "#a09b7a55";
+      g.fillRect(-8, -7, 2, 17);
+      g.fillStyle = "#b39a65";
+      g.fillRect(-3, 1, 6, 4);
     } else if (type === "energy") {
-      g.fillStyle = "#477780";
-      g.fillRect(-10, -10, 20, 22);
-      g.fillStyle = "#8ff8ee";
-      g.fillRect(-7, -7, 14, 16);
-      g.fillStyle = "#244e63";
-      g.beginPath();
-      g.moveTo(2, -7);
-      g.lineTo(-5, 2);
-      g.lineTo(0, 2);
-      g.lineTo(-2, 8);
-      g.lineTo(6, -2);
-      g.lineTo(1, -2);
-      g.fill();
-      g.fillStyle = "#bdebe0";
-      g.fillRect(-4, -13, 8, 3);
+      panel(-10, -10, 20, 24, "#4c5c5c");
+      g.fillStyle = "#172a33";
+      g.fillRect(-6, -6, 12, 16);
+      for (let i = 0; i < 3; i++) {
+        g.fillStyle = "#426c82";
+        g.fillRect(-4, -4 + i * 4, 8, 2);
+        g.fillStyle = "#89b2bf";
+        g.fillRect(-3, -4 + i * 4, 2, 1);
+      }
+      g.fillStyle = "#a29d7b";
+      g.fillRect(-5, -13, 3, 3);
+      g.fillRect(2, -13, 3, 3);
+      g.fillStyle = "#202d32";
+      g.fillRect(-12, -5, 3, 15);
+      g.fillRect(9, -5, 3, 15);
     } else if (type === "explosive") {
-      g.fillStyle = "#a4ad88";
-      g.fillRect(-9, -3, 18, 13);
-      g.fillStyle = "#e9c37c";
-      g.fillRect(-5, -10, 10, 8);
-      g.fillStyle = "#626c5c";
-      g.fillRect(-3, -13, 9, 4);
-      g.strokeStyle = "#eef1c5";
-      g.lineWidth = 2;
-      g.beginPath();
-      g.arc(9, -10, 4, 0, Math.PI * 2);
-      g.stroke();
-      g.fillStyle = "#d4d0a8";
-      for (let i = 0; i < 3; i++) g.fillRect(-7 + i * 5, 0, 2, 8);
+      for (const x of [-11, 2]) {
+        panel(x, -5, 10, 18, "#5b654d");
+        g.fillStyle = "#202b2a";
+        g.fillRect(x + 1, -10, 8, 5);
+        g.fillStyle = "#95937a";
+        g.fillRect(x + 3, -11, 7, 2);
+        g.fillStyle = "#26322c";
+        g.fillRect(x + 1, 1, 8, 2);
+        g.fillRect(x + 1, 6, 8, 2);
+        g.fillStyle = "#a39061";
+        g.fillRect(x + 3, -2, 3, 3);
+      }
+    } else if (type === "health") {
+      panel(-15, -8, 30, 21, "#64716a");
+      g.strokeStyle = "#89968a";
+      g.lineWidth = 3;
+      g.strokeRect(-6, -12, 12, 5);
+      g.fillStyle = "#22302e";
+      g.fillRect(-12, -5, 24, 14);
+      g.fillStyle = "#c2bda2";
+      g.fillRect(-2, -4, 4, 12);
+      g.fillRect(-6, 0, 12, 4);
+      g.fillStyle = "#9a9f8b";
+      g.fillRect(-12, 8, 3, 5);
+      g.fillRect(9, 8, 3, 5);
     }
+    // Small scratches and recessed fasteners connect the kit to the environment palette.
+    g.fillStyle = "#b2b39a45";
+    g.fillRect(-9, 11, 4, 1);
+    g.fillRect(7, 8, 2, 1);
+    g.fillStyle = "#101b1e";
+    g.fillRect(-12, -7, 1, 1);
+    g.fillRect(11, 10, 1, 1);
+    return canvas;
+  },
+  drawIcon(g, x, y, type, scale = 1) {
+    const icon = this.icons[type] || (this.icons[type] = this.icon(type));
+    g.save();
+    g.translate(Math.round(x), Math.round(y));
+    g.scale(scale, scale);
+    g.imageSmoothingEnabled = false;
+    g.drawImage(icon, -24, -24);
     g.restore();
   },
 };

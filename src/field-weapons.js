@@ -13,9 +13,7 @@ Object.assign(X.Game.prototype, {
   },
   gunStep(dt) {
     const s = this.gunState;
-    for (const k of ["comboTimer", "parry", "parryCooldown"])
-      s[k] = Math.max(0, s[k] - dt);
-    if (!s.comboTimer) s.combo = 0;
+    for (const k of ["parry", "parryCooldown"]) s[k] = Math.max(0, s[k] - dt);
     if (
       this.weapon !== 5 ||
       !this.mouse.left ||
@@ -41,12 +39,12 @@ Object.assign(X.Game.prototype, {
     }
     return false;
   },
-  fieldAttackFX(w) {
+  fieldAttackFX(w, alt = false) {
     this.muzzle = 0.055;
     this.stats.shots++;
     this.cool = w.rate;
     this.shake = Math.max(this.shake, w.recoil || 0);
-    X.Audio.play(w.kind);
+    X.Audio.play(w.kind, 1, alt);
   },
   fireFieldWeapon(alt) {
     const base = X.weapons[this.weapon],
@@ -58,15 +56,14 @@ Object.assign(X.Game.prototype, {
         if (s.parryCooldown > 0) return;
         s.parry = w.parryWindow;
         s.parryCooldown = w.rate;
-        this.fieldAttackFX(w);
+        this.fieldAttackFX(w, alt);
         this.cool = 0.2;
-        this.arc = { angle: p.angle, life: 0.2, alt: true };
+        this.arc = { angle: p.angle, life: 0.2, duration: 0.2, alt: true };
         return;
       }
-      const phase = s.comboTimer > 0 ? s.combo : 0;
+      const phase = s.combo;
       const damage = w.damage * [1, 1.3, 1.75][phase];
-      s.combo = (phase + 1) % 3;
-      s.comboTimer = 1;
+      let hit = false;
       this.hash.query(p.x, p.y, w.range + 60, (e) => {
         const a = Math.atan2(e.y - p.y, e.x - p.x) - p.angle;
         if (
@@ -75,6 +72,8 @@ Object.assign(X.Game.prototype, {
           this.map.line(p.x, p.y, e.x, e.y)
         ) {
           this.hurtEnemy(e, damage, w.type);
+          hit = true;
+          this.bladeImpact = { x: e.x, y: e.y, life: 0.14 };
           e.stun = Math.max(e.stun, 0.15);
         }
       });
@@ -85,6 +84,7 @@ Object.assign(X.Game.prototype, {
           Math.hypot(o.x - p.x, o.y - p.y) < w.range + 34 &&
           this.map.line(p.x, p.y, o.x, o.y)
         ) {
+          hit = true;
           o.hp -= damage;
           if (o.hp <= 0) {
             o.done = true;
@@ -92,8 +92,17 @@ Object.assign(X.Game.prototype, {
             this.explode(o.x, o.y, 80, 80, false);
           }
         }
-      this.arc = { angle: p.angle, life: 0.15, alt: false };
-      this.fieldAttackFX(w);
+      s.combo = hit ? Math.min(2, phase + 1) : 0;
+      s.comboTimer = 0; // Retained for compatibility with older checkpoints.
+      this.arc = {
+        angle: p.angle,
+        life: 0.15,
+        duration: 0.15,
+        range: w.range,
+        phase,
+        alt: false,
+      };
+      this.fieldAttackFX(w, alt);
       return;
     }
     if (base.id === "rifle" && !alt) {
@@ -106,7 +115,7 @@ Object.assign(X.Game.prototype, {
         : w.cost;
     if (!this.requireAmmo(Math.max(1, cost))) return;
     this.mags[this.weapon] -= cost;
-    this.fieldAttackFX(w);
+    this.fieldAttackFX(w, alt);
     if (base.id === "rifle" && alt) {
       this.hash.query(p.x, p.y, w.range + 70, (e) => {
         const a = Math.atan2(e.y - p.y, e.x - p.x),
@@ -256,8 +265,9 @@ Object.assign(X.Game.prototype, {
     s.life = 1.6;
     s.hit.clear();
     s.color = "#8ffff0";
+    this.bladeImpact = { x: s.x, y: s.y, life: 0.14 };
     this.fx(s.x, s.y, "#c4fff2", 8, 100);
-    X.Audio.play("blade");
+    X.Audio.play("parry");
     return true;
   },
   parryMelee(source) {
@@ -271,8 +281,10 @@ Object.assign(X.Game.prototype, {
       return false;
     const w = X.Armory.stats(X.weapons[0], true);
     this.hurtEnemy(source, w.damage, "energy");
+    this.bladeImpact = { x: source.x, y: source.y, life: 0.14 };
     this.interruptEnemy(source, 0.6);
     source.stun = 0.3;
+    X.Audio.play("parry");
     this.fx(source.x, source.y, "#c4fff2", 8, 100);
     return true;
   },

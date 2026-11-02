@@ -32,7 +32,7 @@ Object.assign(X.Game.prototype, {
     this.muzzleLightScale =
       !alt && ["flame", "plasma"].includes(w.id) ? 0.28 : 1;
     this.shake = Math.max(this.shake, w.recoil || 0);
-    X.Audio.play(w.kind, w.damage / 50);
+    X.Audio.play(w.kind, w.damage / 50, alt);
     this.fx(
       p.x + Math.cos(p.angle) * 27,
       p.y + Math.sin(p.angle) * 27,
