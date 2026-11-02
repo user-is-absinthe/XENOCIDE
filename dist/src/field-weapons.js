@@ -60,7 +60,7 @@ Object.assign(X.Game.prototype, {
         s.parryCooldown = w.rate;
         this.fieldAttackFX(w);
         this.cool = 0.2;
-        this.arc = { angle: p.angle, life: 0.2, alt: true };
+        this.arc = { angle: p.angle, life: 0.2, duration: 0.2, alt: true };
         return;
       }
       const phase = s.comboTimer > 0 ? s.combo : 0;
@@ -75,6 +75,7 @@ Object.assign(X.Game.prototype, {
           this.map.line(p.x, p.y, e.x, e.y)
         ) {
           this.hurtEnemy(e, damage, w.type);
+          this.bladeImpact = { x: e.x, y: e.y, life: 0.14 };
           e.stun = Math.max(e.stun, 0.15);
         }
       });
@@ -92,7 +93,14 @@ Object.assign(X.Game.prototype, {
             this.explode(o.x, o.y, 80, 80, false);
           }
         }
-      this.arc = { angle: p.angle, life: 0.15, alt: false };
+      this.arc = {
+        angle: p.angle,
+        life: 0.15,
+        duration: 0.15,
+        range: w.range,
+        phase,
+        alt: false,
+      };
       this.fieldAttackFX(w);
       return;
     }
@@ -256,6 +264,7 @@ Object.assign(X.Game.prototype, {
     s.life = 1.6;
     s.hit.clear();
     s.color = "#8ffff0";
+    this.bladeImpact = { x: s.x, y: s.y, life: 0.14 };
     this.fx(s.x, s.y, "#c4fff2", 8, 100);
     X.Audio.play("blade");
     return true;
@@ -271,6 +280,7 @@ Object.assign(X.Game.prototype, {
       return false;
     const w = X.Armory.stats(X.weapons[0], true);
     this.hurtEnemy(source, w.damage, "energy");
+    this.bladeImpact = { x: source.x, y: source.y, life: 0.14 };
     this.interruptEnemy(source, 0.6);
     source.stun = 0.3;
     this.fx(source.x, source.y, "#c4fff2", 8, 100);

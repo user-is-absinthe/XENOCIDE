@@ -3,6 +3,183 @@ X.Render = {
   canvas: document.getElementById("game"),
   sprites: [],
   floor: null,
+  contactSpark(g, x, y, color, life, size = 12) {
+    if (life <= 0) return;
+    g.save();
+    g.translate(x, y);
+    g.globalAlpha = Math.min(1, life);
+    const halo = g.createRadialGradient(0, 0, 0, 0, 0, size);
+    halo.addColorStop(0, color + "70");
+    halo.addColorStop(1, color + "00");
+    g.fillStyle = halo;
+    g.fillRect(-size, -size, size * 2, size * 2);
+    g.strokeStyle = color;
+    g.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const a = i * 2.399,
+        r = size * (0.6 + (i % 2) * 0.35);
+      g.beginPath();
+      g.moveTo(Math.cos(a) * 3, Math.sin(a) * 3);
+      g.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      g.stroke();
+    }
+    g.fillStyle = "#effaff";
+    g.fillRect(-2, -2, 4, 4);
+    g.restore();
+  },
+  drawTeslaBeam(g, b, time) {
+    if (b.life <= 0) return;
+    const dx = b.tx - b.x,
+      dy = b.ty - b.y,
+      len = Math.hypot(dx, dy);
+    if (len < 1) return;
+    const count = Math.max(3, Math.min(24, Math.ceil(len / 18))),
+      frame = Math.floor(time * 30),
+      seed = b.x * 0.07 + b.ty * 0.13,
+      fade = Math.min(1, b.life / 0.08),
+      points = [];
+    for (let i = 0; i <= count; i++) {
+      const t = i / count,
+        jitter =
+          i === 0 || i === count
+            ? 0
+            : (Math.sin(i * 17.13 + frame * 2.1 + seed) +
+                Math.sin(i * 7.9 - frame * 1.7)) *
+              0.5 *
+              Math.min(12, len * 0.075);
+      points.push([
+        b.x + dx * t - (dy / len) * jitter,
+        b.y + dy * t + (dx / len) * jitter,
+      ]);
+    }
+    const path = () => {
+      g.beginPath();
+      points.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.stroke();
+    };
+    g.save();
+    g.lineJoin = "round";
+    g.lineCap = "round";
+    g.strokeStyle = b.color;
+    g.globalAlpha = fade * 0.14;
+    g.lineWidth = (b.width || 3) + 8;
+    path();
+    g.globalAlpha = fade * 0.75;
+    g.lineWidth = b.width || 3;
+    path();
+    g.strokeStyle = "#e9f4ff";
+    g.globalAlpha = fade;
+    g.lineWidth = 1.1;
+    path();
+    const branches = [0, 1, 3][X.profile.settings.quality];
+    g.strokeStyle = b.color;
+    g.lineWidth = 1;
+    g.globalAlpha = fade * 0.65;
+    for (let i = 0; i < branches; i++) {
+      const n = Math.min(
+          count - 1,
+          Math.max(1, Math.floor((count * (i + 1)) / (branches + 1))),
+        ),
+        [x, y] = points[n],
+        side = i % 2 ? 1 : -1,
+        reach = 10 + Math.sin(frame + seed + i) * 4;
+      g.beginPath();
+      g.moveTo(x, y);
+      g.lineTo(
+        x + (dx / len) * 7 - (dy / len) * reach * side,
+        y + (dy / len) * 7 + (dx / len) * reach * side,
+      );
+      g.lineTo(
+        x + (dx / len) * 15 - (dy / len) * reach * 1.6 * side,
+        y + (dy / len) * 15 + (dx / len) * reach * 1.6 * side,
+      );
+      g.stroke();
+    }
+    g.restore();
+    this.contactSpark(g, b.x, b.y, b.color, fade * 0.65, 8);
+    this.contactSpark(g, b.tx, b.ty, b.color, fade, 12 + (b.width || 3));
+  },
+  drawBlade(g, game) {
+    const p = game.player,
+      a = game.arc;
+    if (a && a.life > 0 && !a.alt) {
+      const age = 1 - Math.min(1, a.life / (a.duration || 0.15)),
+        r = a.range || 110,
+        direction = (a.phase || 0) % 2 ? -1 : 1,
+        lead = a.angle + direction * (-1.1 + age * 2.2),
+        span = 0.45 + Math.sin(age * Math.PI) * 0.9,
+        fade = Math.sin(Math.max(0.05, 1 - age) * Math.PI * 0.5);
+      g.save();
+      g.translate(p.x, p.y);
+      for (let layer = 0; layer < 3; layer++) {
+        g.globalAlpha = fade * [0.11, 0.3, 0.8][layer];
+        g.fillStyle = ["#67cbb5", "#83dbc9", "#d9fff0"][layer];
+        const width = [20, 10, 3][layer];
+        g.beginPath();
+        for (let i = 0; i <= 18; i++) {
+          const t = i / 18,
+            ang = lead - direction * span * t,
+            rr = r - width * t;
+          if (i === 0) g.moveTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+          else g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+        }
+        for (let i = 18; i >= 0; i--) {
+          const t = i / 18,
+            ang = lead - direction * span * t,
+            rr = r - width - 6 * (1 - t);
+          g.lineTo(Math.cos(ang) * rr, Math.sin(ang) * rr);
+        }
+        g.closePath();
+        g.fill();
+      }
+      g.restore();
+      this.contactSpark(
+        g,
+        p.x + Math.cos(lead) * r,
+        p.y + Math.sin(lead) * r,
+        "#b5e8d5",
+        fade * 0.65,
+        8,
+      );
+    }
+    if (game.weapon === 0 && game.gunState.parry > 0) {
+      g.save();
+      g.translate(p.x, p.y);
+      g.rotate(p.angle);
+      for (const [width, alpha, color] of [
+        [12, 0.09, "#75d5ce"],
+        [3, 0.5, "#72cbbd"],
+        [1, 0.9, "#d4fff3"],
+      ]) {
+        g.strokeStyle = color;
+        g.lineWidth = width;
+        g.globalAlpha = alpha;
+        g.beginPath();
+        g.arc(0, 0, 55, -1.65, 1.65);
+        g.stroke();
+      }
+      g.strokeStyle = "#80c6b8";
+      g.lineWidth = 1;
+      g.globalAlpha = 0.4;
+      for (let i = 0; i < 5; i++) {
+        const ang = -1.4 + i * 0.7;
+        g.beginPath();
+        g.moveTo(Math.cos(ang) * 48, Math.sin(ang) * 48);
+        g.lineTo(Math.cos(ang) * 54, Math.sin(ang) * 54);
+        g.stroke();
+      }
+      g.restore();
+    }
+    if (game.bladeImpact?.life > 0)
+      this.contactSpark(
+        g,
+        game.bladeImpact.x,
+        game.bladeImpact.y,
+        "#c0e6df",
+        game.bladeImpact.life / 0.14,
+        20,
+      );
+  },
   drawHostileShot(g, s, time) {
     const acid = s.color === "#c0e75b",
       r = s.radius || 6;
@@ -340,6 +517,37 @@ X.Render = {
     g.fillRect(20, 2, 5, 3);
     g.fillStyle = "#a59571";
     g.fillRect(-7, 5, 3, 3);
+    if (game.weapon === 0) {
+      g.fillStyle = "#142026";
+      g.fillRect(17, 3, 24, 10);
+      g.fillStyle = "#6e8580";
+      g.fillRect(18, 5, 12, 4);
+      g.fillStyle = "#afc1ac";
+      g.fillRect(26, 1, 3, 13);
+      g.fillStyle = "#abc8bd";
+      g.beginPath();
+      g.moveTo(30, 5);
+      g.lineTo(53, 6);
+      g.lineTo(46, 10);
+      g.lineTo(30, 9);
+      g.fill();
+      g.fillStyle = "#e3fff2";
+      g.fillRect(30, 5, 16, 1);
+      g.fillStyle = "#5c9c8f";
+      g.fillRect(31, 8, 13, 1);
+    } else if (X.weapons[game.weapon].kind === "tesla") {
+      g.fillStyle = "#27303e";
+      g.fillRect(19, 2, 18, 13);
+      for (let i = 0; i < 3; i++) {
+        g.fillStyle = "#7d849d";
+        g.fillRect(21 + i * 5, 2, 2, 12);
+        g.fillStyle = "#b4a6db";
+        g.fillRect(21 + i * 5, 5, 2, 5);
+      }
+      g.fillStyle = "#b9bfd1";
+      g.fillRect(34, 3, 6, 2);
+      g.fillRect(34, 11, 6, 2);
+    }
   },
   lighting(g, game, cx, cy) {
     const dark = X.profile.settings.darkMode;
@@ -364,16 +572,18 @@ X.Render = {
           : ["flame", "napalm"].includes(kind)
             ? "#ff3426"
             : "#ffb75e";
-    if (game.muzzle > 0)
+    if (game.muzzle > 0 && game.weapon !== 0)
       add(
         p.x + Math.cos(p.angle) * 38,
         p.y + Math.sin(p.angle) * 38,
-        180,
+        X.weapons[game.weapon].kind === "tesla" ? 110 : 180,
         color(X.weapons[game.weapon].kind),
         Math.min(1, game.muzzle / 0.035) *
           (["flame", "plasma"].includes(X.weapons[game.weapon].kind)
             ? (game.muzzleLightScale ?? 1)
-            : 1),
+            : X.weapons[game.weapon].kind === "tesla"
+              ? 0.6
+              : 1),
       );
     for (const s of game.shots.items)
       if (
@@ -417,14 +627,30 @@ X.Render = {
         add(
           b.x + ((b.tx - b.x) * i) / 4,
           b.y + ((b.ty - b.y) * i) / 4,
-          95,
+          65,
           b.color,
-          Math.min(0.55, b.life * 5),
+          Math.min(0.32, b.life * 3),
         );
     }
     for (const e of game.enemies.items)
       if (e.active && (e.burn > 0 || e.poolFire > 0))
         add(e.x, e.y, 100, "#ff3426", 0.5);
+    if (game.arc?.life > 0 && !game.arc.alt)
+      add(
+        p.x,
+        p.y,
+        game.arc.range || 110,
+        "#80cbbb",
+        Math.min(0.25, game.arc.life * 2),
+      );
+    if (game.bladeImpact?.life > 0)
+      add(
+        game.bladeImpact.x,
+        game.bladeImpact.y,
+        65,
+        "#a5dbcc",
+        Math.min(0.5, game.bladeImpact.life * 4),
+      );
     const radial = (ctx, x, y, radius, inner, outer) => {
       const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
       gradient.addColorStop(0, inner);
@@ -1353,7 +1579,7 @@ X.Render = {
     g.translate(p.x, p.y);
     g.rotate(p.angle);
     this.marine(g, game);
-    if (game.muzzle > 0) {
+    if (game.muzzle > 0 && game.weapon !== 0) {
       const kind = X.weapons[game.weapon].kind;
       if (["flame", "plasma"].includes(kind)) {
         g.save();
@@ -1368,6 +1594,15 @@ X.Render = {
           20,
         );
         g.restore();
+      } else if (kind === "tesla") {
+        this.contactSpark(
+          g,
+          38,
+          8,
+          "#c1afff",
+          Math.min(1, game.muzzle / 0.04),
+          10,
+        );
       } else {
         g.fillStyle = X.weapons[game.weapon].color;
         g.beginPath();
@@ -1385,26 +1620,10 @@ X.Render = {
       g.strokeRect(-19, -23, 42, 46);
     }
     g.restore();
-    if (game.arc && game.arc.life > 0) {
-      if (game.state === "play") game.arc.life -= dt;
-      g.strokeStyle = "#95ffdb";
-      g.lineWidth = 7;
-      g.beginPath();
-      g.arc(
-        p.x,
-        p.y,
-        80,
-        game.arc.alt ? 0 : game.arc.angle - 1.1,
-        game.arc.alt ? 7 : game.arc.angle + 1.1,
-      );
-      g.stroke();
-    }
-    if (game.weapon === 0 && game.gunState.parry > 0) {
-      g.strokeStyle = "#baffef";
-      g.lineWidth = 5;
-      g.beginPath();
-      g.arc(p.x, p.y, 55, p.angle - 1.65, p.angle + 1.65);
-      g.stroke();
+    if (game.state === "play") {
+      if (game.arc) game.arc.life = Math.max(0, game.arc.life - dt);
+      if (game.bladeImpact)
+        game.bladeImpact.life = Math.max(0, game.bladeImpact.life - dt);
     }
     if (game.pulse?.life > 0) {
       const o = game.pulse;
@@ -1436,16 +1655,6 @@ X.Render = {
           game.beams.splice(i, 1);
           continue;
         }
-        g.strokeStyle = b.color;
-        g.lineWidth = b.width || 3;
-        g.beginPath();
-        g.moveTo(b.x, b.y);
-        g.lineTo(
-          (b.x + b.tx) / 2 + Math.sin(b.life * 200) * 10,
-          (b.y + b.ty) / 2 + 9,
-        );
-        g.lineTo(b.tx, b.ty);
-        g.stroke();
       }
     for (const o of game.particles.items)
       if (o.active && visible(o.x, o.y)) {
@@ -1478,6 +1687,8 @@ X.Render = {
       g.globalCompositeOperation = "source-over";
     }
     this.lighting(g, game, cx, cy);
+    for (const b of game.beams || []) this.drawTeslaBeam(g, b, game.time);
+    this.drawBlade(g, game);
     if (hover) {
       const type = hover.ammoType,
         text =

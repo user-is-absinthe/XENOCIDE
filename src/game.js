@@ -120,6 +120,7 @@ X.Game = class {
     this.blasts = [];
     this.beams = [];
     this.arc = null;
+    this.bladeImpact = null;
     this.muzzle = 0;
     this.state = "play";
     this.keys.clear();
