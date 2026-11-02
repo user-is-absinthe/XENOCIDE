@@ -3,6 +3,10 @@
 Object.assign(X.Game.prototype, {
   switchWeapon(index) {
     if (X.profile.owned.includes(index)) {
+      if (index !== this.weapon) {
+        this.gunState.combo = 0;
+        this.gunState.comboTimer = 0;
+      }
       this.cancelBurst();
       this.gunState.parry = 0;
       this.weapon = index;

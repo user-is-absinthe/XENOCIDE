@@ -73,12 +73,26 @@
     damage.push(hp - e.hp);
   }
   assert(
-    damage[1] > damage[0] && damage[2] > damage[1] && g.gunState.combo === 0,
+    damage[1] > damage[0] && damage[2] > damage[1] && g.gunState.combo === 2,
     "blade combo",
   );
+  const lastHp = e.hp;
   g.fire(false);
-  g.gunStep(1.1);
-  assert(g.gunState.combo === 0, "combo timeout");
+  assert(near(lastHp - e.hp, damage[2]), "max combo damage stays active");
+  g.gunStep(10);
+  assert(g.gunState.combo === 2, "combo survives waiting");
+  g.switchWeapon(0);
+  assert(g.gunState.combo === 2, "reselecting blade preserves combo");
+  g.hash.clear();
+  g.fire(false);
+  g.fire(false);
+  assert(g.gunState.combo === 0, "miss and empty swings reset combo");
+  g.hash.insert(e);
+  g.fire(false);
+  assert(g.gunState.combo === 1, "hit grows combo");
+  g.switchWeapon(1);
+  g.switchWeapon(0);
+  assert(g.gunState.combo === 0, "weapon change resets combo");
   clean("blade", 0, 5);
   g.fire(true);
   assert(g.gunState.parry > 0, "parry window");

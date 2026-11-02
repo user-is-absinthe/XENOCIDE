@@ -180,10 +180,47 @@ X.Render = {
         20,
       );
   },
-  drawHostileShot(g, s, time) {
+  shotExposure(game, s) {
+    if (!X.profile.settings.darkMode) return 1;
+    const p = game.player;
+    const radial = (x, y, radius) => {
+      const dx = s.x - x,
+        dy = s.y - y,
+        d2 = dx * dx + dy * dy;
+      if (d2 >= radius * radius) return 0;
+      return Math.min(1, (1 - Math.sqrt(d2) / radius) / 0.65);
+    };
+    let shadow = 1 - radial(p.x, p.y, 290);
+    if (shadow < 0.01) return 1;
+    for (let i = 1; i <= 12; i++)
+      shadow *=
+        1 -
+        radial(
+          p.x + Math.cos(p.angle) * i * 42,
+          p.y + Math.sin(p.angle) * i * 42,
+          28 + i * 8,
+        ) *
+          0.48 *
+          (1 - i / 15);
+    for (const light of this.sceneLights || [])
+      shadow *= 1 - radial(light.x, light.y, light.radius) * light.power;
+    return 1 - shadow;
+  },
+  drawHostileShot(g, s, time, exposure = 1) {
     const acid = s.color === "#c0e75b",
       r = s.radius || 6;
-    const color = acid ? "#d5f775" : "#ff8569";
+    const brightness = 0.72 + Math.max(0, Math.min(1, exposure)) * 0.28;
+    const tint = (hex) =>
+      brightness >= 0.999
+        ? hex
+        : "rgb(" +
+          [1, 3, 5]
+            .map((i) =>
+              Math.round(parseInt(hex.slice(i, i + 2), 16) * brightness),
+            )
+            .join(",") +
+          ")";
+    const color = tint(acid ? "#d5f775" : "#ff8569");
     g.save();
     g.translate(Math.round(s.x), Math.round(s.y));
     g.rotate(Math.atan2(s.vy, s.vx));
@@ -209,7 +246,7 @@ X.Render = {
     g.beginPath();
     g.ellipse(0, 0, r, r * 0.8, 0, 0, 7);
     g.fill();
-    g.fillStyle = acid ? "#efffc6" : "#fff2cf";
+    g.fillStyle = tint(acid ? "#efffc6" : "#fff2cf");
     g.beginPath();
     g.ellipse(r * 0.2, -r * 0.12, r * 0.46, r * 0.35, 0, 0, 7);
     g.fill();
@@ -659,6 +696,7 @@ X.Render = {
       ctx.fillStyle = gradient;
       ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
     };
+    this.sceneLights = lights;
     if (dark) {
       // Erase light from a transparent mask, never from the opaque world canvas.
       if (!this.darkCanvas) {
@@ -1714,7 +1752,7 @@ X.Render = {
     }
     for (const s of game.shots.items)
       if (s.active && s.enemy && visible(s.x, s.y, 40))
-        this.drawHostileShot(g, s, game.time);
+        this.drawHostileShot(g, s, game.time, this.shotExposure(game, s));
     // Метка цели поверх существ и освещения, но в мировых координатах.
     for (const e of game.enemies.items)
       if (

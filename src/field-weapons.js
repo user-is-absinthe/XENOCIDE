@@ -13,9 +13,7 @@ Object.assign(X.Game.prototype, {
   },
   gunStep(dt) {
     const s = this.gunState;
-    for (const k of ["comboTimer", "parry", "parryCooldown"])
-      s[k] = Math.max(0, s[k] - dt);
-    if (!s.comboTimer) s.combo = 0;
+    for (const k of ["parry", "parryCooldown"]) s[k] = Math.max(0, s[k] - dt);
     if (
       this.weapon !== 5 ||
       !this.mouse.left ||
@@ -63,10 +61,9 @@ Object.assign(X.Game.prototype, {
         this.arc = { angle: p.angle, life: 0.2, duration: 0.2, alt: true };
         return;
       }
-      const phase = s.comboTimer > 0 ? s.combo : 0;
+      const phase = s.combo;
       const damage = w.damage * [1, 1.3, 1.75][phase];
-      s.combo = (phase + 1) % 3;
-      s.comboTimer = 1;
+      let hit = false;
       this.hash.query(p.x, p.y, w.range + 60, (e) => {
         const a = Math.atan2(e.y - p.y, e.x - p.x) - p.angle;
         if (
@@ -75,6 +72,7 @@ Object.assign(X.Game.prototype, {
           this.map.line(p.x, p.y, e.x, e.y)
         ) {
           this.hurtEnemy(e, damage, w.type);
+          hit = true;
           this.bladeImpact = { x: e.x, y: e.y, life: 0.14 };
           e.stun = Math.max(e.stun, 0.15);
         }
@@ -86,6 +84,7 @@ Object.assign(X.Game.prototype, {
           Math.hypot(o.x - p.x, o.y - p.y) < w.range + 34 &&
           this.map.line(p.x, p.y, o.x, o.y)
         ) {
+          hit = true;
           o.hp -= damage;
           if (o.hp <= 0) {
             o.done = true;
@@ -93,6 +92,8 @@ Object.assign(X.Game.prototype, {
             this.explode(o.x, o.y, 80, 80, false);
           }
         }
+      s.combo = hit ? Math.min(2, phase + 1) : 0;
+      s.comboTimer = 0; // Retained for compatibility with older checkpoints.
       this.arc = {
         angle: p.angle,
         life: 0.15,
