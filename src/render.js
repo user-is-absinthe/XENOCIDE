@@ -447,6 +447,44 @@ X.Render = {
           pool.radius * 2,
           pool.radius * 2,
         );
+        const pulse =
+          0.5 +
+          0.5 *
+            Math.sin(game.time * (pool.type === "fire" ? 7 : 4) + pool.phase);
+        g.globalAlpha *=
+          pool.type === "fire" ? 0.18 + pulse * 0.16 : 0.12 + pulse * 0.2;
+        g.strokeStyle = pool.type === "fire" ? "#ffd06a" : "#9affef";
+        g.lineWidth = pool.type === "fire" ? 3 : 2;
+        g.setLineDash(pool.type === "fire" ? [5, 7] : [3, 6]);
+        g.beginPath();
+        g.arc(
+          0,
+          0,
+          pool.radius * (0.62 + pulse * 0.08),
+          game.time * 0.45 + pool.phase,
+          game.time * 0.45 + pool.phase + Math.PI * (1.15 + pulse * 0.5),
+        );
+        g.stroke();
+        g.setLineDash([]);
+        const sparks = pool.type === "fire" ? 5 : 7;
+        g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.35 + pulse * 0.35);
+        g.fillStyle = pool.type === "fire" ? "#ffca70" : "#87ffe9";
+        for (let i = 0; i < sparks; i++) {
+          const a =
+            i * ((Math.PI * 2) / sparks) +
+            pool.phase +
+            game.time * (pool.type === "fire" ? 0.3 : -0.22);
+          const d =
+            pool.radius *
+            (0.35 + 0.1 * Math.sin(game.time * 3 + i + pool.phase));
+          const size = pool.type === "fire" ? 3 : 2 + (i % 2);
+          g.fillRect(
+            Math.round((Math.cos(a) * d) / 2) * 2,
+            Math.round((Math.sin(a) * d) / 2) * 2,
+            size,
+            size,
+          );
+        }
         if (pool.type === "fire") {
           const frames = this.burnSprites[X.profile.settings.quality],
             size = pool.radius * 0.65;
@@ -458,6 +496,21 @@ X.Render = {
               size,
               size,
             );
+        } else {
+          g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.22 + pulse * 0.24);
+          g.strokeStyle = "#b2fff4";
+          g.lineWidth = 2;
+          g.beginPath();
+          g.ellipse(
+            0,
+            0,
+            pool.radius * (0.28 + pulse * 0.08),
+            pool.radius * 0.14,
+            -game.time * 0.4,
+            0,
+            Math.PI * 2,
+          );
+          g.stroke();
         }
         g.restore();
       }
@@ -642,6 +695,8 @@ X.Render = {
       }
     for (const s of game.shots.items)
       if (s.active && visible(s.x, s.y)) {
+        // Chunky hot core + crisp pixel tracer, tuned for the game's canvas palette.
+        g.save();
         g.strokeStyle = s.color;
         g.lineWidth =
           s.kind === "rail" ? 5 : s.kind === "flame" ? 12 : s.radius * 1.4;
@@ -650,8 +705,22 @@ X.Render = {
         g.moveTo(s.oldX, s.oldY);
         g.lineTo(s.x - s.vx * 0.013, s.y - s.vy * 0.013);
         g.stroke();
+        g.globalAlpha = 0.32;
+        g.strokeStyle = s.color;
+        g.lineWidth = Math.max(1, s.radius * 3.2);
+        g.beginPath();
+        g.moveTo(s.oldX, s.oldY);
+        g.lineTo(s.x, s.y);
+        g.stroke();
+        g.globalAlpha = 1;
         g.fillStyle = "#f2f4dc";
-        g.fillRect(s.x - 1, s.y - 1, 3, 3);
+        const px = s.kind === "rail" ? 4 : 2;
+        g.fillRect(
+          Math.round(s.x / 2) * 2 - px / 2,
+          Math.round(s.y / 2) * 2 - px / 2,
+          px,
+          px,
+        );
         if (s.payload) {
           g.fillStyle = s.payload === "sticky" ? "#78efcf" : "#ffb763";
           g.beginPath();
@@ -671,6 +740,7 @@ X.Render = {
             g.stroke();
           }
         }
+        g.restore();
       }
     g.globalAlpha = 1;
     for (let i = game.blasts.length - 1; i >= 0; i--) {
@@ -681,7 +751,8 @@ X.Render = {
         continue;
       }
       const r = b.r * (1 - b.life / 0.5);
-      g.globalAlpha = b.life * 2;
+      const age = 1 - b.life / 0.5;
+      g.globalAlpha = Math.min(1, b.life * 2);
       let fire = g.createRadialGradient(b.x, b.y, 0, b.x, b.y, r);
       fire.addColorStop(0, "#fff6d6");
       fire.addColorStop(0.3, "#ffc364");
@@ -690,10 +761,30 @@ X.Render = {
       g.fillStyle = fire;
       g.fillRect(b.x - r, b.y - r, r * 2, r * 2);
       g.strokeStyle = "#ffe3ae";
-      g.lineWidth = 2;
+      g.lineWidth = Math.max(1, 5 * (1 - age));
       g.beginPath();
-      g.arc(b.x, b.y, r, 0, 7);
+      g.arc(b.x, b.y, r * (0.76 + age * 0.24), 0, 7);
       g.stroke();
+      // A second, broken ring and short square embers sell the impact at game scale.
+      g.globalAlpha = Math.min(1, b.life * 2) * 0.72;
+      g.strokeStyle = age < 0.45 ? "#fff1bd" : "#ff884c";
+      g.lineWidth = 2;
+      g.setLineDash([5, 7]);
+      g.beginPath();
+      g.arc(b.x, b.y, r * 0.58, age * 2, age * 2 + Math.PI * 1.55);
+      g.stroke();
+      g.setLineDash([]);
+      for (let spark = 0; spark < 8; spark++) {
+        const a = (spark * Math.PI) / 4 + 0.2;
+        const d = r * (0.42 + ((spark * 7) % 3) * 0.15);
+        g.fillStyle = spark % 2 ? "#fff0bd" : "#ff9356";
+        g.fillRect(
+          Math.round((b.x + Math.cos(a) * d) / 2) * 2,
+          Math.round((b.y + Math.sin(a) * d) / 2) * 2,
+          3,
+          3,
+        );
+      }
     }
     g.globalAlpha = 1;
     g.save();
