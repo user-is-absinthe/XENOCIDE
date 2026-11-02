@@ -41,7 +41,7 @@ Object.assign(X.Game.prototype, {
       this.reload = w.reload * (1 - 0.09 * X.profile.upgrades.reload);
       this.reloadTotal = this.reload;
       this.charge = 0;
-      X.Audio.play("reload");
+      X.Audio.play("reload", 1, w.kind);
     }
   },
   autoReload() {
@@ -123,7 +123,7 @@ Object.assign(X.Game.prototype, {
           X.profile.upgrades.power,
         ) * (alt ? 1.65 : 1),
       angle = p.angle;
-    X.Audio.play(w.kind, w.damage / 50);
+    X.Audio.play(w.kind, w.damage / 50, alt);
     this.fx(
       p.x + Math.cos(angle) * 27,
       p.y + Math.sin(angle) * 27,

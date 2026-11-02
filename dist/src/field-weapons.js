@@ -39,12 +39,12 @@ Object.assign(X.Game.prototype, {
     }
     return false;
   },
-  fieldAttackFX(w) {
+  fieldAttackFX(w, alt = false) {
     this.muzzle = 0.055;
     this.stats.shots++;
     this.cool = w.rate;
     this.shake = Math.max(this.shake, w.recoil || 0);
-    X.Audio.play(w.kind);
+    X.Audio.play(w.kind, 1, alt);
   },
   fireFieldWeapon(alt) {
     const base = X.weapons[this.weapon],
@@ -56,7 +56,7 @@ Object.assign(X.Game.prototype, {
         if (s.parryCooldown > 0) return;
         s.parry = w.parryWindow;
         s.parryCooldown = w.rate;
-        this.fieldAttackFX(w);
+        this.fieldAttackFX(w, alt);
         this.cool = 0.2;
         this.arc = { angle: p.angle, life: 0.2, duration: 0.2, alt: true };
         return;
@@ -102,7 +102,7 @@ Object.assign(X.Game.prototype, {
         phase,
         alt: false,
       };
-      this.fieldAttackFX(w);
+      this.fieldAttackFX(w, alt);
       return;
     }
     if (base.id === "rifle" && !alt) {
@@ -115,7 +115,7 @@ Object.assign(X.Game.prototype, {
         : w.cost;
     if (!this.requireAmmo(Math.max(1, cost))) return;
     this.mags[this.weapon] -= cost;
-    this.fieldAttackFX(w);
+    this.fieldAttackFX(w, alt);
     if (base.id === "rifle" && alt) {
       this.hash.query(p.x, p.y, w.range + 70, (e) => {
         const a = Math.atan2(e.y - p.y, e.x - p.x),
@@ -267,7 +267,7 @@ Object.assign(X.Game.prototype, {
     s.color = "#8ffff0";
     this.bladeImpact = { x: s.x, y: s.y, life: 0.14 };
     this.fx(s.x, s.y, "#c4fff2", 8, 100);
-    X.Audio.play("blade");
+    X.Audio.play("parry");
     return true;
   },
   parryMelee(source) {
@@ -284,6 +284,7 @@ Object.assign(X.Game.prototype, {
     this.bladeImpact = { x: source.x, y: source.y, life: 0.14 };
     this.interruptEnemy(source, 0.6);
     source.stun = 0.3;
+    X.Audio.play("parry");
     this.fx(source.x, source.y, "#c4fff2", 8, 100);
     return true;
   },
