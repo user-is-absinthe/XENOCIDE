@@ -53,9 +53,9 @@ X.SoundDesign = {
         tone(700, 310, 0.05, 0.13, 0.18),
       ],
       flame: [
-        noise(1600, 0.15, 0.65, 0, { band: 120, attack: 0.015, decay: 2.8 }),
-        noise(5500, 0.075, 0.16, 0.01),
-        tone(65, 45, 0.12, 0.12),
+        // Soft pressurised hiss: no low-frequency thump or sharp ignition click.
+        noise(6500, 0.16, 0.18, 0, { band: 1600, attack: 0.025, decay: 2.4 }),
+        noise(2400, 0.13, 0.08, 0, { band: 700, attack: 0.03, decay: 2.8 }),
       ],
       plasma: [
         tone(1200, 240, 0.22, 0.3, 0, { attack: 0.004, mod: 31 }),
