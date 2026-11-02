@@ -5,6 +5,7 @@ X.Scoring = {
     perLevel: 500,
     reference: 180,
     difficulty: [0.8, 1, 1.3, 1.6],
+    darkMode: 1.25,
     limit: 10,
   },
   defaults() {
@@ -20,14 +21,15 @@ X.Scoring = {
         : "") || "Боец"
     );
   },
-  points(level, time, difficulty) {
+  points(level, time, difficulty, darkMode = false) {
     const r = this.rules;
     return Math.max(
       1,
       Math.floor(
         ((r.base + Math.min(40, level) * r.perLevel) *
           r.difficulty[difficulty] *
-          r.reference) /
+          r.reference *
+          (darkMode ? r.darkMode : 1)) /
           (r.reference + Math.max(0, time)),
       ),
     );
@@ -79,6 +81,7 @@ X.Scoring = {
             points: e.points,
             time: e.time,
             difficulty: e.difficulty,
+            darkMode: e.darkMode === true,
             pace: e.pace,
             date: e.date,
           })),
@@ -131,7 +134,8 @@ X.Scoring = {
       legs.push({
         level: e.level,
         time: e.time,
-        points: this.points(e.level, e.time, e.difficulty),
+        points: this.points(e.level, e.time, e.difficulty, e.darkMode === true),
+        darkMode: e.darkMode === true,
         difficulty: e.difficulty,
         pace: e.pace,
       });
@@ -163,7 +167,9 @@ X.Scoring = {
     X.Save.write(X.profile);
   },
   finish(g, win) {
-    const points = win ? this.points(g.number, g.time, g.difficulty) : 0;
+    const points = win
+      ? this.points(g.number, g.time, g.difficulty, g.darkRun)
+      : 0;
     if (X.Debug.active || X.Demo?.active) return { points, test: true };
     const p = X.profile,
       records = p.records,
@@ -176,6 +182,7 @@ X.Scoring = {
       points,
       time: g.time,
       difficulty: g.difficulty,
+      darkMode: g.darkRun === true,
       pace: g.pace,
       date: Date.now(),
     };
@@ -198,6 +205,7 @@ X.Scoring = {
           time: g.time,
           points,
           difficulty: g.difficulty,
+          darkMode: g.darkRun === true,
           pace: g.pace,
         });
         run.next++;
@@ -219,6 +227,7 @@ X.Scoring = {
             time: run.time,
             difficulty,
             pace,
+            darkMode: run.legs.every((e) => e.darkMode),
           };
           records.campaigns = this.trim([...records.campaigns, full]);
           const pos = records.campaigns

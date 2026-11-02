@@ -393,6 +393,7 @@ X.Save = {
         e[key] = this.number(e[key], 0, 12);
       e.weakFactor = this.number(e.weakFactor, 1, 1.5, 1);
     }
+    clean.darkRun = c.darkRun === true;
     return clean;
   },
   weaponEffects(data, m) {

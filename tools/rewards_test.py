@@ -28,7 +28,7 @@ with sync_playwright() as p:
         assert page.evaluate('({weapons:X.weapons.map(w=>w.price),ammo:Object.values(X.ammo).map(a=>a.price),implants:X.upgrades.map(u=>u.price)})')==prices
     page.get_by_role('button',name='НАЧАТЬ МИССИЮ',exact=True).click()
     page.evaluate('X.game.stats.damage=1;X.game.finish(true)')
-    assert 'Коэффициент кредитов сложности: ×2,5' in page.locator('.panel').inner_text()
+    assert 'Коэффициент кредитов: ×2,5' in page.locator('.panel').inner_text()
     assert page.evaluate('X.game.earned')==1088
     page.evaluate('X.profile.checkpoint=null;X.UI.shop()')
     before=page.evaluate('({credits:X.profile.credits,ammo:X.profile.ammo.energy,price:X.ammo.energy.price,pack:X.ammo.energy.pack})')

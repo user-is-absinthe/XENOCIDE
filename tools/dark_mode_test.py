@@ -52,9 +52,25 @@ with sync_playwright() as p:
       if(X.game.player.stamina!==0) throw Error('stamina regenerated with shift');
       X.game.keys.clear();X.game.update(.1);if(X.game.player.stamina<=0) throw Error('no regen after release');
       X.profile.settings.darkMode=true;X.Render.draw(X.game,0);X.game.state="pause";X.UI.hide();document.getElementById("toast").classList.remove("visible");
+      const g=X.game;
+      g.darkRun=true;X.profile.settings.darkMode=true;
+      const normalCredits=Math.round(100*g.diff.economy);
+      if(g.creditReward(100)!==Math.round(100*g.diff.economy*1.25)) throw Error('credit bonus');
+      const base=X.Scoring.points(1,0,1);
+      if(X.Scoring.points(1,0,1,true)!==base*1.25) throw Error('score bonus');
+      const saved=X.Save.validate({...X.profile, checkpoint:g.snapshot()});
+      if(!saved.checkpoint.darkRun) throw Error('checkpoint lost bonus');
+      g.restore(saved.checkpoint);if(!g.darkRun) throw Error('restore lost bonus');
+      const run=X.Scoring.validateRun({startedAt:Date.now(),time:10,legs:[{level:1,time:10,difficulty:1,pace:1,darkMode:true}]});
+      if(run.points!==X.Scoring.points(1,10,1,true)) throw Error('campaign bonus lost');
+      X.UI.brief(1);g.state="pause";
+      const toggle=document.querySelector('[data-setting="darkMode"]');
+      toggle.checked=false;toggle.dispatchEvent(new Event('change',{bubbles:true}));
+      if(g.darkRun) throw Error('bonus retained after disabling dark mode');
+      X.Debug.leave();
       return {center,edge,ahead,behind,plasma,fire,version:X.version};
     }''')
-    page.screenshot(path=str(root/'artifacts/dark-mode-187.png'))
+    page.screenshot(path=str(root/'artifacts/dark-mode-188.png'))
     page.evaluate('X.UI.setup()')
     switch=page.get_by_role('switch',name='Dark mode')
     before=switch.is_checked()
@@ -64,7 +80,11 @@ with sync_playwright() as p:
     page.keyboard.press('Space')
     assert switch.is_checked()==before
     assert switch.evaluate("e=>getComputedStyle(e).appearance")=='none'
-    page.screenshot(path=str(root/'artifacts/dark-mode-switch-187.png'))
+    for width in [768,1024,1280]:
+        page.set_viewport_size({'width':width,'height':720})
+        bounds=page.locator('.dark-mode-control').evaluate("e=>{const a=e.querySelector('label').getBoundingClientRect(), b=e.querySelector('input').getBoundingClientRect();return Math.abs((a.top+a.height/2)-(b.top+b.height/2))}")
+        assert bounds<2,('switch wrapped',width,bounds)
+    page.screenshot(path=str(root/'artifacts/dark-mode-switch-188.png'))
     assert not errors,errors
     print('PASS',result)
     browser.close()

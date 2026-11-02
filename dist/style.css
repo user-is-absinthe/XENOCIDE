@@ -175,6 +175,13 @@ select {
 input[type="range"] {
   accent-color: #73d6c7;
 }
+.dark-mode-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: nowrap;
+  white-space: nowrap;
+}
 .row .dark-mode-label {
   min-width: auto;
   margin-left: 8px;

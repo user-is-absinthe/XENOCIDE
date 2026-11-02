@@ -161,9 +161,9 @@ X.UI = {
   },
   darkModeControl() {
     return (
-      '<label class="dark-mode-label" for="dark-mode" title="Теперь лабиринты базы стали по-настоящему тёмными и пугающими.">Dark mode</label><input id="dark-mode" class="dark-mode-switch" type="checkbox" role="switch" data-setting="darkMode" ' +
+      '<span class="dark-mode-control" title="Теперь лабиринты базы стали по-настоящему тёмными и пугающими. За миссию целиком в Dark mode: +25% кредитов и очков."><label class="dark-mode-label" for="dark-mode">Dark mode</label><input id="dark-mode" class="dark-mode-switch" type="checkbox" role="switch" data-setting="darkMode" ' +
       (X.profile.settings.darkMode ? "checked" : "") +
-      ">"
+      '></span><span class="small dark-mode-bonus">+25% кредитов · очки ×1,25</span>'
     );
   },
   demo() {
@@ -262,7 +262,10 @@ X.UI = {
         " волн · задачи: " +
         (l.targets.length || "зачистка") +
         '<br>Кредиты: ×<span id="credit-multiplier">' +
-        X.difficulties[X.profile.difficulty].economy.toLocaleString("ru-RU") +
+        (
+          X.difficulties[X.profile.difficulty].economy *
+          (X.profile.settings.darkMode ? X.Scoring.rules.darkMode : 1)
+        ).toLocaleString("ru-RU") +
         "</span> за врагов, задания и завершение." +
         '<br>Контрольная точка каждые 30 секунд и при паузе.</p><div class="menu">' +
         this.button("deploy", "НАЧАТЬ МИССИЮ", true) +
@@ -756,8 +759,11 @@ X.UI = {
         g.creditsAwarded +
         "</b>кредиты получены</div><div><b>" +
         g.stats.shots +
-        '</b>атак</div></div><p class="small">Коэффициент кредитов сложности: ×' +
-        g.diff.economy.toLocaleString("ru-RU") +
+        '</b>атак</div></div><p class="small">Коэффициент кредитов: ×' +
+        (
+          g.diff.economy * (g.darkRun ? X.Scoring.rules.darkMode : 1)
+        ).toLocaleString("ru-RU") +
+        (g.darkRun ? " · Dark mode: кредиты и очки ×1,25" : "") +
         '</p><div class="row">' +
         this.button(
           X.Debug.active
@@ -937,7 +943,9 @@ X.UI = {
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
       " · карта<br>Очки за текущий темп: " +
-      X.RecordsUI.number(X.Scoring.points(g.number, g.time, g.difficulty)) +
+      X.RecordsUI.number(
+        X.Scoring.points(g.number, g.time, g.difficulty, g.darkRun),
+      ) +
       '</div></div><div class="hud-bottom"><div class="vitals">ЗДОРОВЬЕ ' +
       Math.max(0, Math.ceil(p.hp)) +
       " / " +
@@ -1411,13 +1419,26 @@ document.addEventListener("change", (e) => {
     X.profile.settings.pace = [0.55, 1, 1.4][+e.target.value];
   if (e.target.dataset.setting)
     X.profile.settings[e.target.dataset.setting] = e.target.checked;
+  if (
+    e.target.dataset.setting === "darkMode" &&
+    !e.target.checked &&
+    ["play", "pause"].includes(X.game.state)
+  ) {
+    X.game.darkRun = false;
+    if (X.profile.checkpoint) X.profile.checkpoint.darkRun = false;
+  }
   if (e.target.dataset.volume)
     X.profile.settings[e.target.dataset.volume] = +e.target.value;
   X.Save.write(X.profile);
   const creditMultiplier = document.getElementById("credit-multiplier");
-  if (e.target.id === "difficulty" && creditMultiplier)
-    creditMultiplier.textContent =
-      X.difficulties[X.profile.difficulty].economy.toLocaleString("ru-RU");
+  if (
+    (e.target.id === "difficulty" || e.target.dataset.setting === "darkMode") &&
+    creditMultiplier
+  )
+    creditMultiplier.textContent = (
+      X.difficulties[X.profile.difficulty].economy *
+      (X.profile.settings.darkMode ? X.Scoring.rules.darkMode : 1)
+    ).toLocaleString("ru-RU");
   X.Audio.settings?.();
 });
 document.getElementById("import").addEventListener("change", async (e) => {
