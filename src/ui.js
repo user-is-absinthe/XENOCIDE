@@ -105,6 +105,7 @@ X.UI = {
       Math.max(8, Math.min(window.innerHeight - height - 8, top)) + "px";
   },
   menu() {
+    X.Demo.leave();
     X.Debug.leave();
     const p = X.profile;
     X.game.state = "menu";
@@ -126,6 +127,7 @@ X.UI = {
               : "ПРОДОЛЖИТЬ · СЕКТОР " + p.level,
         ) +
         this.button("levels", "ВЫБОР МИССИИ") +
+        this.button("demo", "ДЕМО") +
         this.button("records", "ТАБЛИЦА ЛИДЕРОВ") +
         this.button("slots", "СОХРАНЕНИЯ · 3 ЯЧЕЙКИ") +
         this.button("debug", "ПОЛИГОН · УРОВНИ И ЧИТЫ") +
@@ -155,6 +157,37 @@ X.UI = {
         this.button("menu", "ОТМЕНА") +
         "</div>",
       "confirm",
+    );
+  },
+  demo() {
+    const saved = X.Demo.load();
+    this.show(
+      '<div class="eyebrow">Демонстрация / автопилот</div><h2>Демо</h2><p>Компьютер проходит 20 миссий по кругу, выполняет задания, покупает оружие, боеприпасы и улучшения. После поражения повторяет текущую миссию. Esc — пауза и выход в меню.</p>' +
+        (saved
+          ? "<p>Сохранено: круг " +
+            saved.cycle +
+            ", сектор " +
+            saved.stage +
+            " / 20 · " +
+            X.difficulties[saved.profile.difficulty].name +
+            (saved.profile.checkpoint
+              ? " · " + this.time(saved.profile.checkpoint.time)
+              : " · перед высадкой") +
+            '</p><div class="row">' +
+            this.button("demoContinue", "ПРОДОЛЖИТЬ ДЕМО", true) +
+            '</div><div class="rule"></div>'
+          : "") +
+        '<h3>Начать заново</h3><div class="row"><label for="demo-difficulty">Сложность нового демо</label>' +
+        this.select(
+          "demo-difficulty",
+          X.difficulties.map((d) => d.name),
+          saved?.profile.difficulty ?? X.profile.difficulty,
+        ) +
+        '</div><p class="small">Новая демонстрация начинается с первого сектора и заменяет прежнее демо. Её прогресс сохраняется отдельно от вашей кампании и рекордов.</p><div class="row">' +
+        this.button("demoBegin", "НАЧАТЬ ДЕМО ЗАНОВО", !saved) +
+        this.button("menu", "НАЗАД") +
+        "</div>",
+      "demo",
     );
   },
   setup() {
@@ -552,6 +585,30 @@ X.UI = {
     }
   },
   pause() {
+    if (X.Demo.active) {
+      this.show(
+        '<div class="eyebrow">Демо · круг ' +
+          X.Demo.cycle +
+          '</div><h2>Пауза</h2><p>Демо сохранено. Бой и автоматическая высадка остановлены. После выхода можно продолжить с этого места.</p><div class="menu">' +
+          this.button("resume", "ПРОДОЛЖИТЬ", true) +
+          this.button(
+            "toggleMusic",
+            X.profile.settings.musicEnabled
+              ? "МУЗЫКА: ВКЛ · ОТКЛЮЧИТЬ"
+              : "МУЗЫКА: ВЫКЛ · ВКЛЮЧИТЬ",
+          ) +
+          this.button(
+            "toggleMute",
+            X.profile.settings.mute
+              ? "ЗВУК: ВЫКЛ · ВКЛЮЧИТЬ"
+              : "ОТКЛЮЧИТЬ ВЕСЬ ЗВУК",
+          ) +
+          this.button("menu", "ГЛАВНОЕ МЕНЮ") +
+          "</div>",
+        "pause",
+      );
+      return;
+    }
     this.show(
       '<div class="eyebrow">Протокол приостановлен</div><h2>Пауза</h2><p>' +
         (X.Debug.active
@@ -852,7 +909,11 @@ X.UI = {
           extra) +
       '</span></div><div class="hint">' +
       Math.min(999, Math.round(g.fps)) +
-      (X.Debug.active ? " FPS · ПОЛИГОН · " : " FPS · ") +
+      (X.Demo.active
+        ? " FPS · ДЕМО · КРУГ " + X.Demo.cycle + " · "
+        : X.Debug.active
+          ? " FPS · ПОЛИГОН · "
+          : " FPS · ") +
       X.difficulties[X.profile.difficulty].name +
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
@@ -935,6 +996,13 @@ X.UI = {
       p = X.profile,
       g = X.game;
     if (
+      X.Demo.active &&
+      !["resume", "demoPause", "menu", "toggleMusic", "toggleMute"].includes(
+        act,
+      )
+    )
+      return;
+    if (
       X.Debug.active &&
       [
         "new",
@@ -956,6 +1024,21 @@ X.UI = {
       return;
     }
     switch (act) {
+      case "demo":
+        this.demo();
+        break;
+      case "demoBegin":
+        X.Demo.enter(
+          false,
+          Number(document.getElementById("demo-difficulty")?.value),
+        );
+        break;
+      case "demoContinue":
+        X.Demo.enter(true);
+        break;
+      case "demoPause":
+        g.pause();
+        break;
       case "slots":
         X.Slots.show();
         break;
@@ -1320,15 +1403,15 @@ document.addEventListener("change", (e) => {
 });
 document.getElementById("import").addEventListener("change", async (e) => {
   try {
-    if (X.Debug.active)
-      throw Error("Выйдите из полигона перед импортом сохранений");
+    if (X.Debug.active || X.Demo.active)
+      throw Error("Вернитесь в главное меню перед импортом сохранений");
     const f = e.target.files[0];
     if (!f) return;
     if (f.size > 8e6) throw Error("Файл слишком большой");
     const data = JSON.parse(await f.text()),
       profile = X.Save.validate(data);
-    if (X.Debug.active)
-      throw Error("Выйдите из полигона перед импортом сохранений");
+    if (X.Debug.active || X.Demo.active)
+      throw Error("Вернитесь в главное меню перед импортом сохранений");
     if (Object.hasOwn(data, "saveSlots")) X.Slots.importData(data.saveSlots);
     X.profile = profile;
     X.Save.write(profile);
@@ -1398,11 +1481,20 @@ window.addEventListener("keydown", (e) => {
   )
     e.preventDefault();
   if (e.code === "Escape") {
-    if (X.game.state === "play") X.game.pause();
+    if (
+      X.game.state === "play" ||
+      (X.Demo.active && X.game.state === "demo-wait")
+    )
+      X.game.pause();
     else if (X.game.state === "pause") X.game.resume();
     return;
   }
   if (X.game.state !== "play") return;
+  if (X.Demo.active) {
+    if (e.code === X.profile.settings.keys.map)
+      X.game.mapOpen = !X.game.mapOpen;
+    return;
+  }
   X.game.keys.add(e.code);
   if (e.repeat) return;
   const k = X.profile.settings.keys;
@@ -1411,8 +1503,11 @@ window.addEventListener("keydown", (e) => {
   if (/^Digit[1-9]$/.test(e.code)) X.game.switchWeapon(+e.code.slice(5) - 1);
   if (e.code === "Digit0") X.game.cycle(1);
 });
-window.addEventListener("keyup", (e) => X.game.keys.delete(e.code));
+window.addEventListener("keyup", (e) => {
+  if (!X.Demo.active) X.game.keys.delete(e.code);
+});
 X.Render.canvas.addEventListener("mousemove", (e) => {
+  if (X.Demo.active) return;
   const r = X.Render.canvas.getBoundingClientRect(),
     scale = Math.min(r.width / 1152, r.height / 648);
   X.game.mouse.x = (e.clientX - r.left - (r.width - 1152 * scale) / 2) / scale;
@@ -1421,10 +1516,12 @@ X.Render.canvas.addEventListener("mousemove", (e) => {
 X.Render.canvas.addEventListener("mousedown", (e) => {
   X.Audio.start();
   if (X.game.state !== "play") return;
+  if (X.Demo.active) return;
   if (e.button === 0) X.game.mouse.left = true;
   if (e.button === 2) X.game.mouse.right = true;
 });
 window.addEventListener("mouseup", (e) => {
+  if (X.Demo.active) return;
   if (e.button === 0) X.game.mouse.left = false;
   if (e.button === 2) X.game.mouse.right = false;
 });
@@ -1433,7 +1530,8 @@ X.Render.canvas.addEventListener(
   "wheel",
   (e) => {
     e.preventDefault();
-    if (X.game.state === "play") X.game.cycle(e.deltaY > 0 ? 1 : -1);
+    if (X.game.state === "play" && !X.Demo.active)
+      X.game.cycle(e.deltaY > 0 ? 1 : -1);
   },
   { passive: false },
 );

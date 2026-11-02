@@ -1,6 +1,6 @@
 {
   "name": "xenocide",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "private": true,
   "description": "Autonomous offline Canvas horde shooter",
   "scripts": {"format": "prettier --write src/*.js tools/*_checks.js style.css index.html"},

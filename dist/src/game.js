@@ -21,6 +21,7 @@ X.Game = class {
     this.marks = [];
   }
   start(number = 1, checkpoint = null) {
+    if (X.Demo?.active && (number < 1 || number > 20)) return;
     if (number === 0 && !X.Debug.active) return;
     this.number = number;
     this.level =
@@ -261,6 +262,7 @@ X.Game = class {
     X.UI.toast("Контакт · волна " + this.wave + " / " + this.level.waves, 2200);
   }
   update(dt) {
+    X.Demo?.tick(this, dt);
     if (this.state !== "play") return;
     this.clock += dt;
     this.time += dt;
@@ -518,6 +520,11 @@ X.Game = class {
     if (X.Debug?.active) return;
     if (this.state !== "play") return;
     X.profile.checkpoint = this.snapshot();
+    if (X.Demo?.active) {
+      X.Demo.capture(this);
+      X.Demo.save();
+      return;
+    }
     X.Save.write(X.profile);
   }
   snapshot() {
@@ -706,10 +713,15 @@ X.Game = class {
     this.creditsAwarded = win ? this.earned : Math.floor(this.earned * 0.5);
     X.profile.credits = Math.min(1e8, X.profile.credits + this.creditsAwarded);
     X.Save.write(X.profile);
-    X.UI.result(win, reason);
+    if (X.Demo?.active) X.Demo.finished(win);
+    else X.UI.result(win, reason);
   }
   pause() {
-    if (this.state === "play") {
+    if (
+      this.state === "play" ||
+      (X.Demo?.active && this.state === "demo-wait")
+    ) {
+      this.pauseState = this.state;
       this.checkpoint();
       this.state = "pause";
       this.keys.clear();
@@ -720,10 +732,15 @@ X.Game = class {
   }
   resume() {
     if (this.state === "pause") {
-      this.state = "play";
+      this.state =
+        X.Demo?.active && this.pauseState === "demo-wait"
+          ? "demo-wait"
+          : "play";
       this.keys.clear();
       this.dashHeld = false;
-      X.UI.hide();
+      if (this.state === "demo-wait")
+        X.Demo.report(this.number !== X.Demo.stage);
+      else X.UI.hide();
     }
   }
   frame(t) {
