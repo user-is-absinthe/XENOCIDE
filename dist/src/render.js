@@ -3,6 +3,146 @@ X.Render = {
   canvas: document.getElementById("game"),
   sprites: [],
   floor: null,
+  materialTile(g, x, y, wall, theme, rng) {
+    // All wear is baked once, using a visual RNG independent of combat.
+    const metal = g.createLinearGradient(x, y, x + 30, y + 48);
+    metal.addColorStop(0, "#a9c0bc12");
+    metal.addColorStop(0.4, "#00000000");
+    metal.addColorStop(1, "#01070ba0");
+    g.fillStyle = metal;
+    g.fillRect(x + 2, y + 2, 44, wall ? 32 : 44);
+    for (let i = 0; i < 34; i++) {
+      g.fillStyle = i % 3 ? "#02070922" : "#b4b8a51a";
+      g.fillRect(
+        x + rng.int(3, 44),
+        y + rng.int(3, wall ? 30 : 44),
+        rng.int(1, 3),
+        1,
+      );
+    }
+    if (wall) {
+      g.fillStyle = "#a5b8b22b";
+      g.fillRect(x + 3, y + 2, 41, 1);
+      g.fillStyle = "#00080ba8";
+      g.fillRect(x + 4, y + 30, 39, 3);
+      for (let i = 0; i < 3; i++) {
+        const xx = x + 7 + i * 13;
+        g.fillStyle = "#152026";
+        g.fillRect(xx, y + 9, 4, 16);
+        g.fillStyle = "#87959033";
+        g.fillRect(xx, y + 9, 1, 14);
+      }
+      g.fillStyle = "#080c10";
+      g.fillRect(x + 4, y + 36, 40, 7);
+      g.fillStyle = "#65716a33";
+      g.fillRect(x + 6, y + 36, 36, 1);
+      if (rng.next() < 0.38) {
+        g.fillStyle = "#91593640";
+        g.fillRect(x + rng.int(5, 39), y + 4, 2, rng.int(8, 25));
+      }
+    } else {
+      g.fillStyle = "#a4b3aa18";
+      g.fillRect(x + 3, y + 2, 41, 1);
+      g.fillRect(x + 2, y + 3, 1, 41);
+      g.fillStyle = "#00050870";
+      g.fillRect(x + 3, y + 45, 43, 2);
+      if (rng.next() < 0.2) {
+        const xx = x + rng.int(9, 29),
+          yy = y + rng.int(10, 30);
+        g.fillStyle = theme === 3 ? "#29181e75" : "#050b0c80";
+        for (let i = 0; i < 6; i++)
+          g.fillRect(xx + rng.int(-5, 8), yy + i * 2, rng.int(5, 16), 2);
+        g.fillStyle = "#849a9a15";
+        g.fillRect(xx, yy + 4, 9, 1);
+      }
+      if (rng.next() < 0.18) {
+        g.strokeStyle = "#0206098a";
+        g.lineWidth = 1;
+        g.beginPath();
+        const xx = x + rng.int(12, 35);
+        g.moveTo(xx, y + 2);
+        g.lineTo(xx - 4, y + 14);
+        g.lineTo(xx + 2, y + 20);
+        g.lineTo(xx - 3, y + 31);
+        g.stroke();
+      }
+    }
+  },
+  marine(g, game) {
+    const walk =
+      game.moving && game.state === "play" ? Math.sin(game.time * 16) * 4 : 0;
+    g.fillStyle = "#00000080";
+    g.beginPath();
+    g.ellipse(-1, 7, 24, 19, 0, 0, 7);
+    g.fill();
+    // Boots, undersuit, layered ceramic plates and a recessed visor.
+    for (const side of [-1, 1]) {
+      const step = side * walk;
+      g.fillStyle = "#090f13";
+      g.fillRect(-17 + step, side < 0 ? -17 : 6, 22, 12);
+      g.fillStyle = "#35423f";
+      g.fillRect(-12 + step, side < 0 ? -15 : 8, 14, 8);
+      g.fillStyle = "#6b7365";
+      g.fillRect(-11 + step, side < 0 ? -15 : 8, 11, 2);
+      g.fillStyle = "#111b20";
+      g.fillRect(1, side < 0 ? -20 : 10, 18, 11);
+      g.fillStyle = "#626c60";
+      g.fillRect(3, side < 0 ? -19 : 11, 12, 8);
+      g.fillStyle = "#a1a28a";
+      g.fillRect(4, side < 0 ? -19 : 11, 9, 2);
+      g.fillStyle = "#1c2929";
+      g.fillRect(6, side < 0 ? -15 : 15, 8, 3);
+    }
+    g.fillStyle = "#0b1318";
+    g.beginPath();
+    g.moveTo(-13, -10);
+    g.lineTo(-7, -15);
+    g.lineTo(5, -13);
+    g.lineTo(12, -6);
+    g.lineTo(12, 8);
+    g.lineTo(3, 14);
+    g.lineTo(-10, 12);
+    g.closePath();
+    g.fill();
+    const armor = g.createLinearGradient(-10, -13, 5, 14);
+    armor.addColorStop(0, "#8b9381");
+    armor.addColorStop(0.35, "#58675f");
+    armor.addColorStop(1, "#263534");
+    g.fillStyle = armor;
+    g.fillRect(-10, -10, 16, 20);
+    g.fillStyle = "#1b2729";
+    g.fillRect(-8, -2, 13, 3);
+    g.fillStyle = "#b4b19a";
+    g.fillRect(-9, -10, 12, 2);
+    g.fillStyle = "#151f20";
+    g.fillRect(-14, -7, 5, 14);
+    g.fillStyle = "#7b8170";
+    g.fillRect(-14, -6, 2, 10);
+    g.fillStyle = "#0a1218";
+    g.fillRect(-2, -9, 18, 18);
+    g.fillStyle = "#697e7a";
+    g.fillRect(0, -8, 13, 15);
+    g.fillStyle = "#b3bab0";
+    g.fillRect(1, -8, 10, 2);
+    g.fillStyle = "#1b2a30";
+    g.fillRect(9, -6, 6, 12);
+    g.fillStyle = "#629f9d";
+    g.fillRect(10, -4, 4, 7);
+    g.fillStyle = "#a3d1bf";
+    g.fillRect(11, -4, 2, 2);
+    g.fillStyle = "#0c1419";
+    g.fillRect(12, 4, 25, 9);
+    g.fillStyle = "#677271";
+    g.fillRect(14, 4, 17, 3);
+    g.fillStyle = "#303d40";
+    g.fillRect(18, 7, 19, 4);
+    g.fillStyle = "#a1a799";
+    g.fillRect(30, 6, 6, 2);
+    g.fillStyle = "#111c20";
+    g.fillRect(20, 2, 5, 3);
+    g.fillStyle = "#a59571";
+    g.fillRect(-7, 5, 3, 3);
+  },
   lighting(g, game, cx, cy) {
     const dark = X.profile.settings.darkMode;
     if (!dark && !X.profile.settings.lights) return;
@@ -298,8 +438,9 @@ X.Render = {
   },
   sprite(d) {
     const c = document.createElement("canvas");
-    c.width = c.height = 100;
+    c.width = c.height = 50;
     const g = c.getContext("2d");
+    g.scale(0.5, 0.5);
     g.translate(50, 50);
     let r = d.radius;
     g.fillStyle = "#0008";
@@ -323,13 +464,35 @@ X.Render = {
     g.beginPath();
     g.ellipse(-4, 0, r, r * 0.7, 0, 0, 7);
     g.fill();
-    g.fillStyle = d.color;
+    const shell = g.createLinearGradient(-r, -r, r * 0.5, r);
+    shell.addColorStop(0, "#b1b4a0");
+    shell.addColorStop(0.28, d.color);
+    shell.addColorStop(1, "#142124");
+    g.fillStyle = shell;
     g.beginPath();
     g.ellipse(0, -2, r * 0.82, r * 0.56, 0, 0, 7);
     g.fill();
-    g.fillStyle = "#d0dbad";
-    for (let i = 0; i < 4; i++)
-      g.fillRect(-r * 0.6 + i * 6, -r * 0.4, 3, r * 0.7);
+    g.save();
+    g.clip();
+    const texture = new X.RNG(Math.round(r * 91 + d.hp));
+    for (let i = 0; i < 70; i++) {
+      g.fillStyle = i % 3 ? "#07100f55" : "#d4d5aa30";
+      g.fillRect(texture.int(-r, r), texture.int(-r, r), 2, 2);
+    }
+    g.restore();
+    for (let i = 0; i < 4; i++) {
+      const xx = -r * 0.65 + i * r * 0.32;
+      g.strokeStyle = "#101d20a8";
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(xx, -r * 0.45);
+      g.lineTo(xx + 4, 0);
+      g.lineTo(xx, r * 0.4);
+      g.stroke();
+      g.strokeStyle = "#c0c5a64a";
+      g.lineWidth = 1;
+      g.stroke();
+    }
     g.fillStyle = "#2d3934";
     g.beginPath();
     g.moveTo(r * 0.35, -r * 0.6);
@@ -343,7 +506,11 @@ X.Render = {
     g.fillRect(r + 2, -8, 5, 3);
     g.fillRect(r + 2, 5, 5, 3);
     if (d.kind === "armor" || d.id === "steel") {
-      g.fillStyle = "#d1d8cf";
+      const plate = g.createLinearGradient(0, -r, 0, r);
+      plate.addColorStop(0, "#a2aaa1");
+      plate.addColorStop(0.4, "#697876");
+      plate.addColorStop(1, "#293a3d");
+      g.fillStyle = plate;
       for (let i = 0; i < 3; i++) {
         g.beginPath();
         g.moveTo(-r * 0.7 + i * 9, -r * 0.65);
@@ -351,16 +518,42 @@ X.Render = {
         g.lineTo(i * 9, r * 0.5);
         g.lineTo(-r * 0.7 + i * 9, r * 0.55);
         g.fill();
+        g.strokeStyle = "#15242c";
+        g.lineWidth = 1;
+        g.stroke();
       }
-      g.fillStyle = "#667985";
+      g.fillStyle = "#233239";
       g.fillRect(-r * 0.6, -3, r, 5);
+      g.fillStyle = "#a5ab943d";
+      for (let i = 0; i < 6; i++)
+        g.fillRect(-r * 0.5 + i * 4, -r * 0.3 + (i % 3) * 2, 2, 2);
     }
     if (d.kind === "acid" || d.kind === "suicide") {
-      g.fillStyle = d.kind === "acid" ? "#c7e36f" : "#efb261";
+      const membrane = g.createRadialGradient(
+        -r * 0.6,
+        -r * 0.25,
+        1,
+        -r * 0.4,
+        0,
+        r * 0.65,
+      );
+      membrane.addColorStop(0, d.kind === "acid" ? "#b5c47d" : "#d8ae70");
+      membrane.addColorStop(0.6, d.kind === "acid" ? "#75814b" : "#93603f");
+      membrane.addColorStop(1, "#2a3027");
+      g.fillStyle = membrane;
       g.beginPath();
       g.ellipse(-r * 0.4, 0, r * 0.65, r * 0.65, 0, 0, 7);
       g.fill();
-      g.fillStyle = "#fff6b755";
+      g.strokeStyle = "#2d3e3055";
+      g.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        g.beginPath();
+        g.moveTo(-r * 0.8, -r * 0.3 + i * 4);
+        g.lineTo(-r * 0.4, i * 3);
+        g.lineTo(-r * 0.6, r * 0.4);
+        g.stroke();
+      }
+      g.fillStyle = "#fff6b738";
       for (let i = 0; i < 4; i++) g.fillRect(-r * 0.8 + i * 4, -r * 0.4, 2, 4);
     }
     if (d.kind === "summon") {
@@ -405,7 +598,12 @@ X.Render = {
       g.fillStyle = "#faefd2";
       g.fillRect(-12, -9, 11, 18);
     }
-    return c;
+    const sprite = document.createElement("canvas");
+    sprite.width = sprite.height = 100;
+    const pixels = sprite.getContext("2d");
+    pixels.imageSmoothingEnabled = false;
+    pixels.drawImage(c, 0, 0, 100, 100);
+    return sprite;
   },
   prepare(game) {
     let m = game.map,
@@ -415,10 +613,10 @@ X.Render = {
     const g = c.getContext("2d"),
       rng = new X.RNG(game.number * 117);
     const palettes = [
-      ["#202c32", "#24363d", "#40535a"],
-      ["#242b31", "#2e343c", "#4d565d"],
-      ["#26302e", "#2c3c39", "#5a6953"],
-      ["#2c292c", "#393038", "#69505b"],
+      ["#222c2d", "#303b3b", "#596561"],
+      ["#292c2c", "#363b3c", "#60675f"],
+      ["#282e29", "#343c34", "#646957"],
+      ["#2c2628", "#393132", "#64534f"],
     ];
     let pal = palettes[game.level.theme];
     for (let y = 0; y < m.h; y++)
@@ -471,6 +669,14 @@ X.Render = {
             g.stroke();
           }
         }
+        this.materialTile(
+          g,
+          px,
+          py,
+          m.cells[y * m.w + x],
+          game.level.theme,
+          rng,
+        );
       }
     // Кэшированные коммуникации, предупредительные полосы и маркировка помещений.
     for (let y = 1; y < m.h - 1; y++)
@@ -478,6 +684,21 @@ X.Render = {
         if (!m.cells[y * m.w + x]) {
           let px = x * 48,
             py = y * 48;
+          // Contact shadows anchor raised walls to the floor.
+          const neighbors = [
+            [m.cells[(y - 1) * m.w + x], px, py, px, py + 22, 48, 22],
+            [m.cells[y * m.w + x - 1], px, py, px + 18, py, 18, 48],
+            [m.cells[(y + 1) * m.w + x], px, py + 48, px, py + 34, 48, -14],
+            [m.cells[y * m.w + x + 1], px + 48, py, px + 34, py, -14, 48],
+          ];
+          for (const [solid, x1, y1, x2, y2, w, h] of neighbors)
+            if (solid) {
+              const shade = g.createLinearGradient(x1, y1, x2, y2);
+              shade.addColorStop(0, "#00070bd0");
+              shade.addColorStop(1, "#00070b00");
+              g.fillStyle = shade;
+              g.fillRect(x1, y1, w, h);
+            }
           if (m.cells[(y - 1) * m.w + x]) {
             g.fillStyle = "#101e25";
             g.fillRect(px, py + 3, 48, 9);
@@ -485,6 +706,24 @@ X.Render = {
             g.fillRect(px, py + 4, 48, 2);
             g.fillStyle = game.level.theme === 3 ? "#bc7c9d" : "#78b9b4";
             if (x % 3 === 0) g.fillRect(px + 8, py + 7, 25, 2);
+            if (x % 7 === 0) {
+              g.fillStyle = "#080e12";
+              g.fillRect(px + 13, py + 4, 23, 8);
+              g.fillStyle = game.level.theme === 3 ? "#a9765c" : "#a3b6a0";
+              g.fillRect(px + 16, py + 6, 17, 2);
+              const lamp = g.createRadialGradient(
+                px + 24,
+                py + 12,
+                2,
+                px + 24,
+                py + 12,
+                66,
+              );
+              lamp.addColorStop(0, "#c6ccb11c");
+              lamp.addColorStop(1, "#c6ccb100");
+              g.fillStyle = lamp;
+              g.fillRect(px - 42, py + 12, 132, 54);
+            }
           }
           if (m.cells[y * m.w + x - 1] && x > 3 && x < m.w - 4) {
             g.fillStyle = "#bd9b4e55";
@@ -939,33 +1178,7 @@ X.Render = {
     g.save();
     g.translate(p.x, p.y);
     g.rotate(p.angle);
-    g.fillStyle = "#0007";
-    g.beginPath();
-    g.ellipse(-2, 7, 23, 17, 0, 0, 7);
-    g.fill();
-    let walk =
-      game.moving && game.state === "play" ? Math.sin(game.time * 16) * 5 : 0;
-    g.fillStyle = "#192c38";
-    g.fillRect(-13 + walk, -15, 16, 12);
-    g.fillRect(-13 - walk, 4, 16, 12);
-    g.fillStyle = "#b6cbcc";
-    g.fillRect(-10, -13, 19, 26);
-    g.fillStyle = "#3c6676";
-    g.fillRect(-6, -11, 15, 22);
-    g.fillStyle = "#d7a477";
-    g.fillRect(4, -18, 14, 10);
-    g.fillRect(4, 9, 15, 8);
-    g.fillStyle = "#192f40";
-    g.fillRect(5, -17, 10, 8);
-    g.fillRect(5, 10, 10, 7);
-    g.fillStyle = "#b7d7d8";
-    g.fillRect(-5, -8, 16, 16);
-    g.fillStyle = "#4dd6d4";
-    g.fillRect(6, -6, 5, 12);
-    g.fillStyle = "#18232d";
-    g.fillRect(10, 5, 26, 7);
-    g.fillStyle = "#8b9d9e";
-    g.fillRect(20, 6, 17, 3);
+    this.marine(g, game);
     if (game.muzzle > 0) {
       g.fillStyle = X.weapons[game.weapon].color;
       g.beginPath();
