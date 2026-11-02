@@ -32,14 +32,31 @@ X.Render = {
         p.y + Math.sin(p.angle) * 38,
         180,
         color(X.weapons[game.weapon].kind),
-        Math.min(1, game.muzzle / 0.035),
+        Math.min(1, game.muzzle / 0.035) *
+          (["flame", "plasma"].includes(X.weapons[game.weapon].kind)
+            ? (game.muzzleLightScale ?? 1)
+            : 1),
       );
     for (const s of game.shots.items)
       if (
         s.active &&
         ["plasma", "flame", "napalm", "rail", "rocket"].includes(s.kind)
-      )
-        add(s.x, s.y, s.kind === "rocket" ? 95 : 130, color(s.kind), 0.7);
+      ) {
+        const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
+        add(
+          s.x,
+          s.y,
+          soft
+            ? s.kind === "flame"
+              ? 65
+              : 85
+            : s.kind === "rocket"
+              ? 95
+              : 130,
+          color(s.kind),
+          soft ? (s.kind === "flame" ? 0.16 : 0.28) : 0.7,
+        );
+      }
     for (const s of game.surfaces.items)
       if (s.active)
         add(
@@ -821,18 +838,25 @@ X.Render = {
     for (const s of game.shots.items)
       if (s.active && visible(s.x, s.y)) {
         // Chunky hot core + crisp pixel tracer, tuned for the game's canvas palette.
+        const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
         g.save();
         g.strokeStyle = s.color;
         g.lineWidth =
           s.kind === "rail" ? 5 : s.kind === "flame" ? 12 : s.radius * 1.4;
-        g.globalAlpha = s.kind === "flame" ? 0.5 : 1;
+        g.globalAlpha = soft
+          ? s.kind === "flame"
+            ? 0.32
+            : 0.75
+          : s.kind === "flame"
+            ? 0.5
+            : 1;
         g.beginPath();
         g.moveTo(s.oldX, s.oldY);
         g.lineTo(s.x - s.vx * 0.013, s.y - s.vy * 0.013);
         g.stroke();
-        g.globalAlpha = 0.32;
+        g.globalAlpha = soft ? 0.1 : 0.32;
         g.strokeStyle = s.color;
-        g.lineWidth = Math.max(1, s.radius * 3.2);
+        g.lineWidth = Math.max(1, s.radius * (soft ? 1.8 : 3.2));
         g.beginPath();
         g.moveTo(s.oldX, s.oldY);
         g.lineTo(s.x, s.y);

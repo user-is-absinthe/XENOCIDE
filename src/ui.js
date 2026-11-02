@@ -161,7 +161,7 @@ X.UI = {
   },
   darkModeControl() {
     return (
-      '<label for="dark-mode" title="Теперь лабиринты базы стали по-настоящему тёмными и пугающими.">Dark mode</label><input id="dark-mode" type="checkbox" data-setting="darkMode" ' +
+      '<label class="dark-mode-label" for="dark-mode" title="Теперь лабиринты базы стали по-настоящему тёмными и пугающими.">Dark mode</label><input id="dark-mode" class="dark-mode-switch" type="checkbox" role="switch" data-setting="darkMode" ' +
       (X.profile.settings.darkMode ? "checked" : "") +
       ">"
     );

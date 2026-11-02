@@ -33,6 +33,14 @@ with sync_playwright() as p:
       paint();
       const center=pixel(576,324),edge=pixel(15,15),ahead=pixel(990,324),behind=pixel(162,324);
       if(center[0]<240 || edge[0]>25 || ahead[0]<=behind[0]+10) throw Error('lighting '+JSON.stringify({center,edge,ahead,behind}));
+      for (const kind of ['flame','plasma']) {
+        fake.shots.items=[{active:true,x:100,y:100,kind,payload:null}];paint();
+        const primary=pixel(100,100).slice(0,3).reduce((a,b)=>a+b,0);
+        fake.shots.items[0].payload=kind==='flame'?'napalm':'sticky';paint();
+        const alternate=pixel(100,100).slice(0,3).reduce((a,b)=>a+b,0);
+        if(primary>=alternate*0.65) throw Error('primary glow too strong: '+kind);
+      }
+      fake.shots.items=[];
       fake.surfaces.items=[{active:true,x:100,y:100,radius:65,type:'energy',life:2}];paint();
       const plasma=pixel(100,100);if(plasma[2]<=plasma[0]) throw Error('blue plasma');
       fake.surfaces.items[0].type='fire';paint();const fire=pixel(100,100);if(fire[0]<=fire[2]) throw Error('red fire');
@@ -46,7 +54,17 @@ with sync_playwright() as p:
       X.profile.settings.darkMode=true;X.Render.draw(X.game,0);X.game.state="pause";X.UI.hide();document.getElementById("toast").classList.remove("visible");
       return {center,edge,ahead,behind,plasma,fire,version:X.version};
     }''')
-    page.screenshot(path=str(root/'artifacts/dark-mode-186.png'))
+    page.screenshot(path=str(root/'artifacts/dark-mode-187.png'))
+    page.evaluate('X.UI.setup()')
+    switch=page.get_by_role('switch',name='Dark mode')
+    before=switch.is_checked()
+    switch.click()
+    assert switch.is_checked()!=before
+    switch.focus()
+    page.keyboard.press('Space')
+    assert switch.is_checked()==before
+    assert switch.evaluate("e=>getComputedStyle(e).appearance")=='none'
+    page.screenshot(path=str(root/'artifacts/dark-mode-switch-187.png'))
     assert not errors,errors
     print('PASS',result)
     browser.close()
