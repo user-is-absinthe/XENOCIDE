@@ -472,14 +472,17 @@ X.Game = class {
   lootStep() {
     const p = this.player,
       picked = {};
+    let healed = 0;
     if (p.hp <= 0) return;
     for (let i = this.loot.length - 1; i >= 0; i--) {
       const l = this.loot[i];
       if (Math.hypot(l.x - p.x, l.y - p.y) >= 35) continue;
       if (l.kind === "health" && p.hp >= p.maxHp) continue;
-      if (l.kind === "health")
+      if (l.kind === "health") {
+        const before = p.hp;
         p.hp = Math.min(p.maxHp, p.hp + 30 * l.amount * this.diff.loot);
-      else
+        healed += p.hp - before;
+      } else
         for (const a of l.ammoType ? [l.ammoType] : X.Loot.types()) {
           const n = X.Loot.quantity(a, l.amount, this.diff);
           this.ammo[a] = Math.min(99999, this.ammo[a] + n);
@@ -488,11 +491,12 @@ X.Game = class {
       this.loot.splice(i, 1);
       X.Audio.play("pickup");
     }
-    if (Object.keys(picked).length)
+    if (Object.keys(picked).length || healed > 0)
       X.UI.toast(
-        Object.entries(picked)
-          .map(([a, n]) => X.ammo[a].name + " +" + n)
-          .join(" · "),
+        [
+          ...Object.entries(picked).map(([a, n]) => X.ammo[a].name + " +" + n),
+          ...(healed > 0 ? ["Аптечка +" + Math.ceil(healed) + " HP"] : []),
+        ].join(" · "),
         2200,
       );
   }

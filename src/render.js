@@ -3,6 +3,47 @@ X.Render = {
   canvas: document.getElementById("game"),
   sprites: [],
   floor: null,
+  drawHostileShot(g, s, time) {
+    const acid = s.color === "#c0e75b",
+      r = s.radius || 6;
+    const color = acid ? "#d5f775" : "#ff8569";
+    g.save();
+    g.translate(Math.round(s.x), Math.round(s.y));
+    g.rotate(Math.atan2(s.vy, s.vx));
+    // Self-lit hazards are drawn over the darkness mask, unlike unlit loot.
+    g.lineCap = "round";
+    g.strokeStyle = "#060c10";
+    g.lineWidth = r + 5;
+    g.beginPath();
+    g.moveTo(-r * 3, 0);
+    g.lineTo(1, 0);
+    g.stroke();
+    const tail = g.createLinearGradient(-r * 3, 0, 0, 0);
+    tail.addColorStop(0, acid ? "#8bb73b00" : "#f0563b00");
+    tail.addColorStop(1, color);
+    g.strokeStyle = tail;
+    g.lineWidth = r * 0.65;
+    g.stroke();
+    g.fillStyle = "#080e12";
+    g.beginPath();
+    g.ellipse(0, 0, r + 2, r * 0.8 + 2, 0, 0, 7);
+    g.fill();
+    g.fillStyle = color;
+    g.beginPath();
+    g.ellipse(0, 0, r, r * 0.8, 0, 0, 7);
+    g.fill();
+    g.fillStyle = acid ? "#efffc6" : "#fff2cf";
+    g.beginPath();
+    g.ellipse(r * 0.2, -r * 0.12, r * 0.46, r * 0.35, 0, 0, 7);
+    g.fill();
+    g.strokeStyle = color;
+    g.lineWidth = 1;
+    g.globalAlpha = 0.4 + Math.sin(time * 16 + s.x) * 0.1;
+    g.beginPath();
+    g.arc(0, 0, r + 4, -0.8, 0.8);
+    g.stroke();
+    g.restore();
+  },
   projectileSprite(type, frame) {
     const c = document.createElement("canvas");
     c.width = 64;
@@ -1156,26 +1197,14 @@ X.Render = {
     }
     for (const l of game.loot)
       if (visible(l.x, l.y)) {
-        if (l.kind === "health") {
-          g.fillStyle = "#071c1ddd";
-          g.fillRect(l.x - 12, l.y - 12, 24, 24);
-          g.fillStyle = "#b7e8bd";
-          g.fillRect(l.x - 2, l.y - 8, 4, 16);
-          g.fillRect(l.x - 8, l.y - 2, 16, 4);
-        } else {
-          const a = l.ammoType || X.Loot.types()[0] || "light",
-            data = X.ammo[a];
-          X.Loot.drawIcon(g, l.x, l.y, a, 0.8);
-          g.font = "bold 8px Segoe UI";
-          g.textAlign = "center";
-          g.fillStyle = "#07131ddd";
-          g.fillRect(l.x - 22, l.y + 13, 44, 11);
-          g.fillStyle = data.color;
-          g.fillText(data.short, l.x, l.y + 21);
-        }
+        const type =
+          l.kind === "health"
+            ? "health"
+            : l.ammoType || X.Loot.types()[0] || "light";
+        X.Loot.drawIcon(g, l.x, l.y, type, 0.8);
       }
     let hover = null,
-      hoverDistance = 60;
+      hoverDistance = 22;
     for (const l of game.loot) {
       const distance = Math.hypot(
         l.x - (game.mouse.x + cx),
@@ -1185,29 +1214,6 @@ X.Render = {
         hover = l;
         hoverDistance = distance;
       }
-    }
-    if (hover) {
-      const type = hover.ammoType,
-        text =
-          hover.kind === "health"
-            ? "АПТЕЧКА"
-            : type
-              ? X.ammo[type].name +
-                " +" +
-                X.Loot.quantity(type, hover.amount, game.diff)
-              : "КОМПЛЕКТ СНАБЖЕНИЯ";
-      g.font = "bold 12px Segoe UI";
-      g.textAlign = "center";
-      const width = g.measureText(text).width + 14,
-        tipX = Math.max(
-          cx + width / 2 + 6,
-          Math.min(cx + 1152 - width / 2 - 6, game.mouse.x + cx),
-        ),
-        tipY = Math.max(cy + 20, game.mouse.y + cy - 38);
-      g.fillStyle = "#07131dee";
-      g.fillRect(tipX - width / 2, tipY - 14, width, 20);
-      g.fillStyle = type ? X.ammo[type].color : "#b7e8bd";
-      g.fillText(text, tipX, tipY);
     }
     for (const e of game.enemies.items)
       if (e.active && visible(e.x, e.y)) {
@@ -1242,6 +1248,7 @@ X.Render = {
       }
     for (const s of game.shots.items)
       if (s.active && visible(s.x, s.y)) {
+        if (s.enemy) continue;
         if (this.drawEnergyShot(g, s, game.time)) continue;
         // Chunky hot core + crisp pixel tracer, tuned for the game's canvas palette.
         const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
@@ -1471,6 +1478,32 @@ X.Render = {
       g.globalCompositeOperation = "source-over";
     }
     this.lighting(g, game, cx, cy);
+    if (hover) {
+      const type = hover.ammoType,
+        text =
+          hover.kind === "health"
+            ? "АПТЕЧКА"
+            : type
+              ? X.ammo[type].name +
+                " +" +
+                X.Loot.quantity(type, hover.amount, game.diff)
+              : "КОМПЛЕКТ СНАБЖЕНИЯ";
+      g.font = "bold 12px Segoe UI";
+      g.textAlign = "center";
+      const width = g.measureText(text).width + 14,
+        tipX = Math.max(
+          cx + width / 2 + 6,
+          Math.min(cx + 1152 - width / 2 - 6, game.mouse.x + cx),
+        ),
+        tipY = Math.max(cy + 20, game.mouse.y + cy - 38);
+      g.fillStyle = "#07131dee";
+      g.fillRect(tipX - width / 2, tipY - 14, width, 20);
+      g.fillStyle = type ? X.ammo[type].color : "#b7e8bd";
+      g.fillText(text, tipX, tipY);
+    }
+    for (const s of game.shots.items)
+      if (s.active && s.enemy && visible(s.x, s.y, 40))
+        this.drawHostileShot(g, s, game.time);
     // Метка цели поверх существ и освещения, но в мировых координатах.
     for (const e of game.enemies.items)
       if (
