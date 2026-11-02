@@ -3,6 +3,163 @@ X.Render = {
   canvas: document.getElementById("game"),
   sprites: [],
   floor: null,
+  projectileSprite(type, frame) {
+    const c = document.createElement("canvas");
+    c.width = 64;
+    c.height = 32;
+    const g = c.getContext("2d"),
+      phase = (frame / 16) * Math.PI * 2;
+    if (type === "fire") {
+      // Cooler smoke sits behind turbulent orange lobes and the hot fuel core.
+      for (let i = 0; i < 3; i++) {
+        const x = 7 + i * 8,
+          y = 12 + Math.sin(phase + i) * 4;
+        const smoke = g.createRadialGradient(x, y, 1, x, y, 8 - i);
+        smoke.addColorStop(0, "#635c5328");
+        smoke.addColorStop(1, "#292d3000");
+        g.fillStyle = smoke;
+        g.fillRect(x - 8, y - 8, 16, 16);
+      }
+      for (let i = 0; i < 5; i++) {
+        const x = 15 + i * 7,
+          y = 16 + Math.sin(phase + i * 1.9) * (5 - i * 0.6),
+          r = 5 + i * 0.7;
+        const flame = g.createRadialGradient(x + 1, y, 0, x, y, r);
+        flame.addColorStop(0, i > 2 ? "#ffe4a3cc" : "#e8994470");
+        flame.addColorStop(0.35, "#ee842aa0");
+        flame.addColorStop(0.7, "#bc3d2175");
+        flame.addColorStop(1, "#86271a00");
+        g.fillStyle = flame;
+        g.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      g.fillStyle = "#ffca72b0";
+      g.beginPath();
+      g.moveTo(50, 16);
+      g.bezierCurveTo(43, 11, 38, 18, 28, 12 + Math.sin(phase) * 3);
+      g.bezierCurveTo(36, 19, 40, 15, 46, 20);
+      g.closePath();
+      g.fill();
+      g.fillStyle = "#fff0bfbb";
+      g.fillRect(46, 15, 4, 2);
+      for (let i = 0; i < 3; i++) {
+        g.fillStyle = i % 2 ? "#f1b16470" : "#d66b3370";
+        g.fillRect(
+          8 + i * 12,
+          9 + Math.round(Math.sin(phase + i * 2) * 8),
+          1,
+          1,
+        );
+      }
+    } else {
+      const glow = g.createRadialGradient(48, 16, 1, 48, 16, 12);
+      glow.addColorStop(0, "#7ac8ff88");
+      glow.addColorStop(0.4, "#397dff48");
+      glow.addColorStop(1, "#164bbb00");
+      g.fillStyle = glow;
+      g.fillRect(36, 4, 24, 24);
+      const tail = g.createLinearGradient(4, 0, 50, 0);
+      tail.addColorStop(0, "#215bd000");
+      tail.addColorStop(0.65, "#397eee60");
+      tail.addColorStop(1, "#acdfffcc");
+      g.fillStyle = tail;
+      g.beginPath();
+      g.moveTo(50, 12);
+      g.bezierCurveTo(
+        35,
+        9 + Math.sin(phase) * 3,
+        22,
+        20,
+        3,
+        15 + Math.sin(phase) * 4,
+      );
+      g.bezierCurveTo(24, 17, 38, 22, 50, 20);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = "#6fbeff55";
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(9, 16);
+      g.bezierCurveTo(23, 11 + Math.sin(phase) * 5, 34, 22, 47, 16);
+      g.stroke();
+      g.fillStyle = "#79bffff0";
+      g.beginPath();
+      g.ellipse(48, 16, 6, 3.5, 0, 0, 7);
+      g.fill();
+      g.fillStyle = "#e0f5ff";
+      g.beginPath();
+      g.ellipse(49, 15.5, 3.5, 1.5, 0, 0, 7);
+      g.fill();
+      g.fillStyle = "#b3e3ff99";
+      g.fillRect(33, 10 + Math.round(Math.sin(phase) * 3), 1, 1);
+    }
+    return c;
+  },
+  drawEnergyShot(g, s, time) {
+    const fire =
+      s.kind === "flame" || s.kind === "napalm" || s.payload === "napalm";
+    if (!fire && s.kind !== "plasma" && s.payload !== "sticky") return false;
+    const frame = Math.floor(time * 24 + s.x * 0.035 + s.y * 0.017) % 16,
+      speed = Math.hypot(s.vx, s.vy),
+      age = Math.max(
+        0,
+        Math.min(1, 1 - (s.life * speed) / Math.max(1, s.range)),
+      ),
+      scale = s.payload
+        ? Math.max(1.1, s.radius / 7)
+        : fire
+          ? 0.8 + age * 0.35
+          : 0.95;
+    g.save();
+    g.translate(Math.round(s.x), Math.round(s.y));
+    g.rotate(speed > 0 ? Math.atan2(s.vy, s.vx) : 0);
+    g.globalAlpha = s.payload ? 0.9 : fire ? 0.62 - age * 0.18 : 0.88;
+    // The cached head is at (48,16); every tail points opposite velocity.
+    if (s.stuck) {
+      const pulse = 1 + Math.sin(time * 15) * 0.08;
+      g.drawImage(
+        this.projectileSprites[1][frame],
+        -20 * scale * pulse,
+        -16 * scale,
+        28 * scale,
+        32 * scale,
+      );
+    } else
+      g.drawImage(
+        this.projectileSprites[fire ? 0 : 1][frame],
+        -48 * scale,
+        -16 * scale,
+        64 * scale,
+        32 * scale,
+      );
+    if (s.payload === "sticky") {
+      g.globalAlpha = 0.65;
+      g.strokeStyle = "#94cfff";
+      g.lineWidth = 1;
+      for (let i = 0; i < 3; i++) {
+        const a = time * 3 + i * 2.1,
+          r = s.radius + 3 + Math.sin(time * 18 + i) * 2;
+        g.beginPath();
+        g.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+        g.lineTo(Math.cos(a + 0.3) * (r + 3), Math.sin(a + 0.3) * (r + 3));
+        g.lineTo(Math.cos(a + 0.6) * r, Math.sin(a + 0.6) * r);
+        g.stroke();
+      }
+      if (s.stuck) {
+        g.strokeStyle = "#d1eaff";
+        g.beginPath();
+        g.arc(
+          0,
+          0,
+          s.radius + 6,
+          -Math.PI / 2,
+          -Math.PI / 2 + Math.PI * 2 * Math.max(0, s.life / s.fuse),
+        );
+        g.stroke();
+      }
+    }
+    g.restore();
+    return true;
+  },
   materialTile(g, x, y, wall, theme, rng) {
     // All wear is baked once, using a visual RNG independent of combat.
     const metal = g.createLinearGradient(x, y, x + 30, y + 48);
@@ -291,6 +448,11 @@ X.Render = {
     this.resize();
     window.addEventListener("resize", () => this.resize());
     this.sprites = X.enemies.map((d) => this.sprite(d));
+    this.projectileSprites = ["fire", "plasma"].map((type) =>
+      Array.from({ length: 16 }, (_, frame) =>
+        this.projectileSprite(type, frame),
+      ),
+    );
     this.burnSprites = [0, 1, 2].map((quality) =>
       Array.from({ length: 12 }, (_, frame) => this.burnSprite(frame, quality)),
     );
@@ -299,8 +461,8 @@ X.Render = {
       c.width = c.height = 128;
       const g = c.getContext("2d");
       const glow = g.createRadialGradient(64, 64, 2, 64, 64, 64);
-      glow.addColorStop(0, type === "fire" ? "#ffe48add" : "#bdd8ffdd");
-      glow.addColorStop(0.45, type === "fire" ? "#ee6f2cb0" : "#438dffa0");
+      glow.addColorStop(0, type === "fire" ? "#f88e4750" : "#84baff66");
+      glow.addColorStop(0.45, type === "fire" ? "#d5472438" : "#3269d74a");
       glow.addColorStop(1, "#00000000");
       g.fillStyle = glow;
       g.fillRect(0, 0, 128, 128);
@@ -312,8 +474,8 @@ X.Render = {
         else g.lineTo(64 + Math.cos(a) * r, 64 + Math.sin(a) * r);
       }
       g.closePath();
-      g.fillStyle = type === "fire" ? "#b94623b0" : "#234da3b0";
-      g.strokeStyle = type === "fire" ? "#ffac4d99" : "#8ebdff99";
+      g.fillStyle = type === "fire" ? "#3b211dc0" : "#10234cc0";
+      g.strokeStyle = type === "fire" ? "#ffac4d66" : "#8ebdff66";
       g.lineWidth = 2;
       g.fill();
       g.stroke();
@@ -836,34 +998,34 @@ X.Render = {
           pool.type === "fire" ? 0.18 + pulse * 0.16 : 0.12 + pulse * 0.2;
         g.strokeStyle = pool.type === "fire" ? "#ffd06a" : "#9ac5ff";
         g.lineWidth = pool.type === "fire" ? 3 : 2;
-        g.setLineDash(pool.type === "fire" ? [5, 7] : [3, 6]);
-        g.beginPath();
-        g.arc(
-          0,
-          0,
-          pool.radius * (0.62 + pulse * 0.08),
-          game.time * 0.45 + pool.phase,
-          game.time * 0.45 + pool.phase + Math.PI * (1.15 + pulse * 0.5),
-        );
-        g.stroke();
-        g.setLineDash([]);
+        // Broken hot fissures replace the geometric rotating targeting ring.
+        for (let i = 0; i < 5; i++) {
+          const a = i * 2.399 + pool.phase,
+            r = pool.radius * (0.25 + (i % 3) * 0.17),
+            x = Math.cos(a) * r,
+            y = Math.sin(a) * r;
+          g.beginPath();
+          g.moveTo(x - 8, y + 2);
+          g.bezierCurveTo(x - 3, y - 4 - pulse * 3, x + 3, y + 4, x + 9, y - 1);
+          g.stroke();
+        }
         const sparks = pool.type === "fire" ? 5 : 7;
         g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.35 + pulse * 0.35);
         g.fillStyle = pool.type === "fire" ? "#ffca70" : "#87b9ff";
         for (let i = 0; i < sparks; i++) {
-          const a =
-            i * ((Math.PI * 2) / sparks) +
-            pool.phase +
-            game.time * (pool.type === "fire" ? 0.3 : -0.22);
+          const a = i * ((Math.PI * 2) / sparks) + pool.phase;
           const d =
             pool.radius *
             (0.35 + 0.1 * Math.sin(game.time * 3 + i + pool.phase));
           const size = pool.type === "fire" ? 3 : 2 + (i % 2);
+          const rise = (game.time * 0.55 + i * 0.27 + pool.phase) % 1;
           g.fillRect(
             Math.round((Math.cos(a) * d) / 2) * 2,
-            Math.round((Math.sin(a) * d) / 2) * 2,
-            size,
-            size,
+            Math.round(
+              (Math.sin(a) * d - rise * (pool.type === "fire" ? 28 : 8)) / 2,
+            ) * 2,
+            size * (1 - rise * 0.6),
+            size * (1 - rise * 0.6),
           );
         }
         if (pool.type === "fire") {
@@ -879,19 +1041,23 @@ X.Render = {
             );
         } else {
           g.globalAlpha = Math.min(1, pool.life / 0.6) * (0.22 + pulse * 0.24);
-          g.strokeStyle = "#b2fff4";
-          g.lineWidth = 2;
-          g.beginPath();
-          g.ellipse(
-            0,
-            0,
-            pool.radius * (0.28 + pulse * 0.08),
-            pool.radius * 0.14,
-            -game.time * 0.4,
-            0,
-            Math.PI * 2,
-          );
-          g.stroke();
+          g.strokeStyle = "#a9d9ff";
+          g.lineWidth = 1;
+          for (let i = 0; i < 4; i++) {
+            const y = (i - 1.5) * pool.radius * 0.23,
+              drift = Math.sin(game.time * 2 + i + pool.phase) * 5;
+            g.beginPath();
+            g.moveTo(-pool.radius * 0.45, y);
+            g.bezierCurveTo(
+              -pool.radius * 0.2,
+              y + drift,
+              pool.radius * 0.15,
+              y - drift,
+              pool.radius * 0.4,
+              y + 2,
+            );
+            g.stroke();
+          }
         }
         g.restore();
       }
@@ -1076,6 +1242,7 @@ X.Render = {
       }
     for (const s of game.shots.items)
       if (s.active && visible(s.x, s.y)) {
+        if (this.drawEnergyShot(g, s, game.time)) continue;
         // Chunky hot core + crisp pixel tracer, tuned for the game's canvas palette.
         const soft = !s.payload && ["flame", "plasma"].includes(s.kind);
         g.save();
@@ -1180,14 +1347,30 @@ X.Render = {
     g.rotate(p.angle);
     this.marine(g, game);
     if (game.muzzle > 0) {
-      g.fillStyle = X.weapons[game.weapon].color;
-      g.beginPath();
-      g.moveTo(33, 4);
-      g.lineTo(51, -3);
-      g.lineTo(45, 7);
-      g.lineTo(55, 15);
-      g.lineTo(33, 13);
-      g.fill();
+      const kind = X.weapons[game.weapon].kind;
+      if (["flame", "plasma"].includes(kind)) {
+        g.save();
+        g.globalAlpha = kind === "flame" ? 0.55 : 0.65;
+        g.drawImage(
+          this.projectileSprites[kind === "flame" ? 0 : 1][
+            Math.floor(game.time * 24) % 16
+          ],
+          8,
+          -2,
+          40,
+          20,
+        );
+        g.restore();
+      } else {
+        g.fillStyle = X.weapons[game.weapon].color;
+        g.beginPath();
+        g.moveTo(33, 4);
+        g.lineTo(51, -3);
+        g.lineTo(45, 7);
+        g.lineTo(55, 15);
+        g.lineTo(33, 13);
+        g.fill();
+      }
     }
     if (p.invuln > 0) {
       g.strokeStyle = "#7ce2db88";
