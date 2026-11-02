@@ -802,6 +802,9 @@ X.UI = {
         '</div><div class="row"><label>Качество</label>' +
         this.select("quality", ["Низкое", "Среднее", "Высокое"], s.quality) +
         "</div>" +
+        '<div class="row"><label>Dark mode<br><span class="small">Теперь лабиринты базы стали по-настоящему тёмными и пугающими.</span></label><input type="checkbox" data-setting="darkMode" ' +
+        (s.darkMode ? "checked" : "") +
+        "></div>" +
         ["lights", "blood", "shake", "mute", "musicEnabled"]
           .map(
             (k, i) =>
@@ -915,7 +918,7 @@ X.UI = {
           ? " FPS · ПОЛИГОН · "
           : " FPS · ") +
       X.difficulties[X.profile.difficulty].name +
-      (g.difficulty === 3 ? " · ФОНАРЬ" : "") +
+      (X.profile.settings.darkMode ? " · DARK MODE" : "") +
       "<br>Esc · пауза / " +
       X.profile.settings.keys.map.replace("Key", "") +
       " · карта<br>Очки за текущий темп: " +

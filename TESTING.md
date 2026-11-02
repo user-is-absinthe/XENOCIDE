@@ -200,3 +200,6 @@ portable_test.py и field_test.py повторно прошли, включая 
 Ошибок JS и сетевых запросов в новых проверках: 0. Отчёты/логи: artifacts/demo-report.json, demo-edge-report.json, demo-soak-*.json. Осмотрены demo-menu.png, demo-pause.png, demo-autopilot.png, demo-live.png и demo-resume.png.
 
 Регрессия: browser_test.py — 68 боевых проверок, 20 сценариев, 160 маршрутов крупных врагов и 600 с симуляции; прежний баланс первого сектора — 127,4 с / 100 HP / 197 патронов. Также прошли revival_test.py, field_test.py, saves_test.py, records_test.py, portable_test.py, shop_test.py и development_test.py. test.py подтвердил синтаксис/локальность 24 JS, связность 20 авторских и 1000 процедурных карт, совпадение dist с исходниками и целостность ZIP; переносимая папка содержит 27 файлов. Это автоматическая проверка в Windows 11, не отдельная приёмка Windows 10/слабого ПК.
+
+02.11.2026, v1.8.5: tools/dark_mode_test.py — Edge: изображение внутри светового круга сохраняется, фонарик освещает направление взгляда, плазма синяя, огонь красный, выстрелы и взрывы дают свет. Проверены сохранение настройки Dark mode и отсутствие регенерации при зажатой клавише бега с возобновлением после отпускания. tools/visual_test.py: dist file:// offline, DPR2, пауза, меню/бой/магазин; ошибок JavaScript и сетевых запросов нет.
+

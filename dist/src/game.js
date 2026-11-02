@@ -306,7 +306,12 @@ X.Game = class {
       Math.min(
         p.maxStamina,
         p.stamina +
-          (sprint ? -32 : X.PlayerStats.staminaRegen(X.profile.upgrades)) * dt,
+          (sprint
+            ? -32
+            : this.keys.has(k.sprint)
+              ? 0
+              : X.PlayerStats.staminaRegen(X.profile.upgrades)) *
+            dt,
       ),
     );
     if (p.dashCharges < p.maxDashCharges) {

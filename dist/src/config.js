@@ -1,6 +1,6 @@
 "use strict";
 window.X = {};
-X.version = "1.6.0";
+X.version = "1.8.5";
 X.C = {
   tile: 48,
   width: 1152,
@@ -311,7 +311,7 @@ X.weapons = [
     pierce: 2,
     type: "energy",
     price: 2700,
-    color: "#78e4d9",
+    color: "#438dff",
     recoil: 2,
     desc: "ЛКМ: плазменные сгустки. ПКМ: весь остаток в липкой бомбе, взрыв и лужа плазмы.",
     strengths:

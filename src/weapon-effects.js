@@ -300,7 +300,7 @@ Object.assign(X.Game.prototype, {
       tick: 0,
       phase: this.visualRng.next() * 6,
     });
-    this.fx(x, y, type === "fire" ? "#ffae59" : "#73f4cf", 10, 100);
+    this.fx(x, y, type === "fire" ? "#ffae59" : "#438dff", 10, 100);
   },
   surfaceStep(dt) {
     for (const o of this.surfaces.items)

@@ -90,6 +90,28 @@ Object.assign(X.Render, {
       else g.lineTo(x, y);
     }
     g.stroke();
+    // Fresh sigil locks into place, then fractures into rising pixel shards.
+    const seal = Math.min(1, progress * 2.4),
+      sealR = 58 + 28 * (1 - seal);
+    g.save();
+    g.rotate(-t * 0.9);
+    g.globalAlpha = fade * (1 - progress * 0.48);
+    g.strokeStyle = "#ffe6a8";
+    g.lineWidth = 2;
+    g.setLineDash([4, 5]);
+    g.beginPath();
+    g.arc(0, 0, sealR, 0, Math.PI * 2 * seal);
+    g.stroke();
+    g.setLineDash([]);
+    for (let i = 0; i < 8; i++) {
+      const a = (i * Math.PI) / 4 + t * 0.65,
+        r = sealR + (i % 3) * 8,
+        x = Math.cos(a) * r,
+        y = Math.sin(a) * r;
+      g.fillStyle = i % 2 ? "#f2c8ff" : "#fff0b2";
+      g.fillRect(Math.round(x / 2) * 2, Math.round(y / 2) * 2, 3, 5);
+    }
+    g.restore();
     // Сборка силуэта: короткие сканирующие полосы и восходящие искры.
     g.fillStyle = "#a8fff5";
     for (let i = 0; i < (q === 0 ? 6 : 12); i++) {
