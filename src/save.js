@@ -388,12 +388,113 @@ X.Save = {
         Number.isSafeInteger(e.spawnId) && e.spawnId > 0 && e.spawnId <= 1e9
           ? e.spawnId
           : 0;
+      e.encounter = this.bossEncounter(e, m);
+      e.broodOwner =
+        Number.isSafeInteger(e.broodOwner) &&
+        e.broodOwner > 0 &&
+        e.broodOwner <= 1e9
+          ? e.broodOwner
+          : 0;
       e.poolFire = this.number(e.poolFire, 0, 1);
       for (const key of ["weakTime", "cripple", "suppressed", "interrupt"])
         e[key] = this.number(e[key], 0, 12);
       e.weakFactor = this.number(e.weakFactor, 1, 1.5, 1);
     }
+    const queens = new Set(
+      clean.enemies
+        .filter(
+          (e) =>
+            X.enemies[e.type].id === "queen" && e.encounter?.state === "guard",
+        )
+        .map((e) => e.spawnId),
+    );
+    clean.enemies = clean.enemies.filter(
+      (e) => e.type !== X.broodNodeType || queens.has(e.broodOwner),
+    );
     clean.darkRun = c.darkRun === true;
+    return clean;
+  },
+  bossEncounter(e, m) {
+    const d = X.enemies[e.type],
+      s = e.encounter;
+    if (!d.boss || !s) return null;
+    const states = {
+      steel: ["windup", "charge"],
+      queen: ["brood", "guard"],
+      patient: ["pulse", "healing"],
+      heart: ["floorWarning", "discharge"],
+    };
+    if (
+      ![1, 2].includes(s.phase) ||
+      !Number.isFinite(s.time) ||
+      !["approach", "transition", "recovery", ...states[d.id]].includes(s.state)
+    )
+      return null;
+    const clean = {
+      phase: s.phase,
+      state: s.state,
+      time: this.number(s.time, 0, 13),
+      cycle: Math.floor(this.number(s.cycle, 0, 1e9)),
+      healed: this.number(s.healed, 0, e.maxHp * 0.14),
+      reinforceAt: this.number(s.reinforceAt, 0, 9),
+      interruptDamage: this.number(s.interruptDamage, 0, 60),
+      exposed: s.exposed === true,
+      hit: s.hit === true,
+    };
+    const point = (x, y) =>
+      Number.isFinite(x) &&
+      Number.isFinite(y) &&
+      x >= 0 &&
+      x < m.w * 48 &&
+      y >= 0 &&
+      y < m.h * 48;
+    if (["windup", "charge", "pulse"].includes(s.state)) {
+      if (!point(s.ax, s.ay)) return null;
+      Object.assign(clean, { ax: s.ax, ay: s.ay });
+    }
+    if (s.state === "windup" || s.state === "charge") {
+      if (
+        !point(s.bx, s.by) ||
+        !m.fits(s.bx, s.by, d.radius) ||
+        !Number.isFinite(s.angle) ||
+        Math.abs(s.angle) > Math.PI ||
+        ![1, 2].includes(s.remaining)
+      )
+        return null;
+      Object.assign(clean, {
+        bx: s.bx,
+        by: s.by,
+        angle: s.angle,
+        remaining: s.remaining,
+        impact: s.impact === true,
+      });
+    }
+    if (s.state === "floorWarning" || s.state === "discharge") {
+      if (
+        !Array.isArray(s.zones) ||
+        s.zones.length < 1 ||
+        s.zones.length > 2 ||
+        !Number.isInteger(s.index) ||
+        s.index < 0 ||
+        s.index >= s.zones.length ||
+        !s.zones.every(
+          (z) =>
+            Array.isArray(z) &&
+            z.length === 4 &&
+            point(z[0], z[1]) &&
+            point(z[0] + z[2], z[1] + z[3]) &&
+            z[2] >= 48 &&
+            z[2] <= 288 &&
+            z[3] >= 48 &&
+            z[3] <= 192,
+        )
+      )
+        return null;
+      Object.assign(clean, {
+        zones: s.zones.map((z) => [...z]),
+        index: s.index,
+      });
+    }
     return clean;
   },
   weaponEffects(data, m) {

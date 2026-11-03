@@ -22,7 +22,7 @@ Object.assign(X.Game.prototype, {
         const d = Math.hypot(e.x - p.x, e.y - p.y);
         if (d < 210 && this.map.line(p.x, p.y, e.x, e.y)) {
           const a = d > 0.1 ? Math.atan2(e.y - p.y, e.x - p.x) : e.phase,
-            push = 95 * (1 - d / 210) * (e.boss ? 0.25 : 1),
+            push = 95 * (1 - d / 210) * this.enemyPushFactor(e),
             steps = Math.max(1, Math.ceil(push / 6));
           for (let i = 0; i < steps; i++)
             this.map.move(

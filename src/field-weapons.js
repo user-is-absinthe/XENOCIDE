@@ -126,7 +126,7 @@ Object.assign(X.Game.prototype, {
           this.map.line(p.x, p.y, e.x, e.y)
         ) {
           this.hurtEnemy(e, w.damage, w.type);
-          const push = w.knockback * (e.boss ? 0.25 : 1),
+          const push = w.knockback * this.enemyPushFactor(e),
             steps = Math.ceil(push / 6);
           for (let i = 0; i < steps; i++)
             this.map.move(

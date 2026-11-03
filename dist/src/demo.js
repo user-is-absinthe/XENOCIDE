@@ -450,7 +450,10 @@ X.Demo = {
       closest = Math.min(closest, d);
       if (d < 240) crowd++;
       const priority =
-        d * (e.type === 6 ? 0.35 : 1) * (coreThreats.includes(e) ? 0.3 : 1);
+        d *
+        (e.type === 6 ? 0.35 : 1) *
+        (coreThreats.includes(e) ? 0.3 : 1) *
+        (e.broodNode ? 0.18 : e.encounter?.state === "healing" ? 0.08 : 1);
       if (priority < targetScore && m.line(p.x, p.y, e.x, e.y)) {
         near = e;
         distance = d;
@@ -509,7 +512,16 @@ X.Demo = {
           Math.hypot(loot.x - core.x, loot.y - core.y) < 140))
     )
       goal = loot;
-    if (!goal && !near && enemies.length) goal = enemies[0];
+    const encounterTarget =
+      enemies.find((e) => e.encounter?.state === "healing") ||
+      enemies.find((e) => e.broodNode);
+    if (!goal && !near && enemies.length) goal = encounterTarget || enemies[0];
+    if (
+      encounterTarget &&
+      !g.ready() &&
+      (!near || (near === encounterTarget && distance > 340))
+    )
+      goal = encounterTarget;
     const target =
       nest && (distance > 200 || g.level.mode === "timed")
         ? nest
@@ -573,7 +585,7 @@ X.Demo = {
     if (
       w.ammo &&
       g.mags[g.weapon] < X.Armory.mag(w) * 0.3 &&
-      closest > 400 &&
+      (closest > 400 || near?.encounter?.state === "pulse") &&
       !g.pendingBurst
     )
       g.beginReload();
@@ -623,6 +635,10 @@ X.Demo = {
             Math.hypot(x - core.x, y - core.y) - (this.coreRepair ? 70 : 220),
           ) * 12;
       for (const e of enemies) {
+        if (e.boss) {
+          const clearance = g.bossDanger(e, x, y);
+          if (clearance < 24) value -= (24 - clearance) * 55;
+        }
         const d = Math.hypot(e.x - x, e.y - y);
         const safe = w.kind === "blade" ? 60 : 160;
         if (d < safe) value -= (safe - d) * 5;

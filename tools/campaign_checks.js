@@ -26,10 +26,7 @@
         g.update(1 / 60);
         for (const e of g.enemies.items)
           if (e.active) {
-            if (e.boss) {
-              bosses.push(e.type);
-              g.bossAttack(e);
-            }
+            if (e.boss) bosses.push(e.type);
             g.hurtEnemy(e, 1e9, "energy");
           }
       }
