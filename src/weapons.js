@@ -477,10 +477,13 @@ Object.assign(X.Game.prototype, {
   hurtEnemy(e, damage, type, armorPierce = false) {
     if (!e.active) return;
     let d = X.enemies[e.type];
-    e.hp -=
+    const dealt =
       damage *
+      this.bossDamageFactor(e) *
       (e.weakTime > 0 ? e.weakFactor : 1) *
       (armorPierce && type === "kinetic" ? 1 : (d.resist?.[type] ?? 1));
+    e.hp -= dealt;
+    if (e.boss && e.hp > 0) this.bossDamageTaken(e, dealt);
     if (damage > 3) this.fx(e.x, e.y, d.color, 2, 45);
     if (e.hp <= 0) this.kill(e);
   },

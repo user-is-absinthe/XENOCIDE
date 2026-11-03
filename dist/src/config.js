@@ -1,6 +1,6 @@
 "use strict";
 window.X = {};
-X.version = "2.0.1";
+X.version = "2.1.0";
 X.C = {
   tile: 48,
   width: 1152,
@@ -588,7 +588,7 @@ X.enemies = [
     color: "#9eb4c1",
     kind: "boss",
     boss: true,
-    resist: { kinetic: 0.5, electric: 1.35 },
+    resist: { kinetic: 0.75, electric: 1.15 },
   },
   {
     id: "heart",
@@ -602,7 +602,7 @@ X.enemies = [
     color: "#e2ad65",
     kind: "boss",
     boss: true,
-    resist: { fire: 0.4, energy: 0.7 },
+    resist: { fire: 0.7, energy: 0.85 },
   },
   {
     id: "queen",
@@ -619,6 +619,21 @@ X.enemies = [
     resist: { kinetic: 0.75, fire: 0.8 },
   },
 ];
+X.bossBrief = {
+  10: "Перезарядитесь перед лечением Пациента и сорвите его уроном по открытой цели.",
+  11: "Уходите поперёк размеченного тарана Стали и бейте после столкновения.",
+  12: "Уходите из размеченных зон Сердца и следите за порядком разрядов.",
+  13: "Разбейте связанные выводковые узлы Матки, чтобы снять защиту.",
+};
+X.broodNodeType = X.enemies.length;
+X.enemies.push({
+  id: "broodNode",
+  name: "ВЫВОДКОВЫЙ УЗЕЛ",
+  hp: 160,
+  radius: 19,
+  color: "#e7a1cb",
+  kind: "node",
+});
 X.upgrades = [
   {
     id: "secondChance",

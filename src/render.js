@@ -1725,6 +1725,7 @@ X.Render = {
       g.globalCompositeOperation = "source-over";
     }
     this.lighting(g, game, cx, cy);
+    game.drawBossCues(g);
     for (const b of game.beams || []) this.drawTeslaBeam(g, b, game.time);
     this.drawBlade(g, game);
     if (hover) {

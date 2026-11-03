@@ -562,7 +562,7 @@ X.Game = class {
       objectives: this.objectives.map((o) => ({ ...o })),
       enemies: this.enemies.items
         .filter((e) => e.active)
-        .map((e) => ({ ...e })),
+        .map((e) => ({ ...e, encounter: this.copyBossEncounter(e.encounter) })),
       spawnQueue: this.spawnQueue.map((e) => ({ ...e })),
       loot: this.loot.map((l) => ({ ...l })),
       coreHp: this.coreHp,
@@ -664,6 +664,12 @@ X.Game = class {
               ? e.spawnId
               : ++this.enemySerial,
           r: X.enemies[e.type].radius,
+          boss: !!X.enemies[e.type].boss,
+          encounter: X.enemies[e.type].boss
+            ? (X.Save.bossEncounter(e, this.map) ?? this.newBossEncounter(e))
+            : null,
+          broodOwner: Number.isSafeInteger(e.broodOwner) ? e.broodOwner : 0,
+          broodNode: e.type === X.broodNodeType,
           pathIndex: -1,
           pathX: e.x,
           pathY: e.y,

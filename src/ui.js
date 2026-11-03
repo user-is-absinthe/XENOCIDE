@@ -1011,6 +1011,8 @@ X.UI = {
       (boss
         ? '<div class="boss">' +
           X.enemies[boss.type].name +
+          (boss.encounter?.phase === 2 ? " · II" : "") +
+          g.bossStatus(boss) +
           '<div class="bar"><i style="width:' +
           Math.max(0, (boss.hp / boss.maxHp) * 100) +
           '%"></i></div></div>'

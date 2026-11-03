@@ -53,6 +53,10 @@ Object.assign(X.Game.prototype, {
       stun: 0,
       special: 2 + this.rng.next() * 3,
       boss: !!d.boss,
+      encounter: d.boss ? this.newBossEncounter() : null,
+      broodOwner: 0,
+      broodNode: type === X.broodNodeType,
+      angle: 0,
       pathX: x,
       pathY: y,
       pathIndex: -1,
@@ -78,6 +82,8 @@ Object.assign(X.Game.prototype, {
       this.hurtEnemy(e, 20 * dt, "fire");
       if (!e.active) return;
     }
+    if (e.broodNode) return;
+    if (d.boss && this.bossStep(e, dt)) return;
     if (e.stun > 0 || e.cripple > 0) return;
     if (e.interrupt > 0) {
       e.attack = Math.max(e.attack, e.interrupt);
@@ -113,10 +119,6 @@ Object.assign(X.Game.prototype, {
       e.special = 9;
       this.fx(e.x, e.y, "#c18ddb", 12, 80);
     }
-    if (d.boss && e.special <= 0) {
-      this.bossAttack(e);
-      e.special = e.hp < e.maxHp * 0.5 ? 3 : 5;
-    }
     if (d.kind === "suicide" && dist < 65) {
       this.explode(e.x, e.y, 105, d.damage * this.diff.damage, true);
       e.hp = 0;
@@ -128,7 +130,8 @@ Object.assign(X.Game.prototype, {
       e.clear = this.map.corridor(e.x, e.y, tx, ty, e.r);
       e.losTimer = 0.25;
     }
-    let ranged = ["acid", "gunner", "elite", "boss"].includes(d.kind);
+    let ranged =
+      d.id === "queen" || ["acid", "gunner", "elite"].includes(d.kind);
     if (
       ranged &&
       dist < 650 &&
@@ -243,54 +246,19 @@ Object.assign(X.Game.prototype, {
     });
     this.map.move(e, (vx * speed + sx) * dt, (vy * speed + sy) * dt);
   },
-  bossAttack(e) {
-    let d = X.enemies[e.type];
-    this.fx(e.x, e.y, d.color, 24, 140);
-    for (let i = 0; i < 16; i++)
-      this.shot(
-        e.x,
-        e.y,
-        (i * Math.PI) / 8 + e.age * 0.2,
-        {
-          damage: d.damage * 0.65 * this.diff.damage,
-          speed: 210,
-          range: 850,
-          pierce: 1,
-          color: d.color,
-          type: "enemy",
-          radius: 7,
-        },
-        true,
-      );
-    if (d.id === "steel") for (let i = 0; i < 3; i++) this.spawn(5, e.x, e.y);
-    if (d.id === "queen") for (let i = 0; i < 4; i++) this.spawn(1, e.x, e.y);
-    if (d.id === "heart") {
-      for (let i = 0; i < 4; i++) {
-        let a = e.angle + (i - 1.5) * 0.22;
-        this.shot(
-          e.x,
-          e.y,
-          a,
-          {
-            damage: 28 * this.diff.damage,
-            speed: 380,
-            range: 950,
-            pierce: 1,
-            color: "#f5ad56",
-            type: "enemy",
-            radius: 10,
-          },
-          true,
-        );
-      }
-    }
-    if (d.id === "patient") {
-      e.hp = Math.min(e.maxHp, e.hp + 20);
-    }
-  },
   kill(e) {
     if (!e.active) return;
     e.active = false;
+    if (X.enemies[e.type].id === "queen")
+      for (const node of this.broodNodes(e)) node.active = false;
+    if (e.broodNode) {
+      this.fx(e.x, e.y, "#e7a1cb", 12, 90);
+      const queen = this.enemies.items.find(
+        (other) => other.active && other.spawnId === e.broodOwner,
+      );
+      if (queen && !this.broodNodes(queen).length) this.queenRecovery(queen);
+      return;
+    }
     this.kills++;
     if (this.weapon === 0) this.stats.bladeKills++;
     this.creditReward(X.enemies[e.type].credit * (e.elite ? 1.8 : 1));
