@@ -110,7 +110,13 @@ X.UI = {
     const p = X.profile;
     X.game.state = "menu";
     this.show(
-      '<div class="eyebrow">PROJECT XENOCIDE / автономный протокол</div><h1 class="brand">XENOCIDE</h1><div class="columns"><div><p class="lead">Сигнал потерян.<br>Карантин нарушен.</p><p>Двадцать секторов. Четыре источника заражения.<br>Один боец за последним шлюзом.</p><div class="rule"></div><div class="intel"><span>КАМПАНИЯ <b>' +
+      '<div class="eyebrow">PROJECT XENOCIDE / автономный протокол</div><h1 class="brand">XENOCIDE</h1><div class="columns"><div>' +
+        (X.Save.needsPlayerName
+          ? '<form id="first-player-name"><label for="player-name">Имя игрока</label><p class="small">Под этим именем будут видны сохранения и новые рекорды.</p><div class="row"><input id="player-name" name="playerName" type="text" maxlength="32" placeholder="Боец"><button type="submit">СОХРАНИТЬ ИМЯ</button></div></form>'
+          : '<p class="small">Игрок · ' +
+            X.RecordsUI.escape(p.records.name) +
+            "</p>") +
+        '<p class="lead">Сигнал потерян.<br>Карантин нарушен.</p><p>Двадцать секторов. Четыре источника заражения.<br>Один боец за последним шлюзом.</p><div class="rule"></div><div class="intel"><span>КАМПАНИЯ <b>' +
         p.completed.length +
         " / 20</b></span><span>УНИЧТОЖЕНО <b>" +
         p.stats.kills +
@@ -1274,6 +1280,7 @@ X.UI = {
         let s = p.settings;
         X.profile = X.Save.defaults();
         X.profile.settings = s;
+        X.profile.records.name = p.records.name;
         X.Save.warning = "";
         X.Slots.clear();
         X.Save.write(X.profile);
@@ -1384,6 +1391,12 @@ window.addEventListener("resize", () => X.UI.hideWeaponTooltip());
 X.game = new X.Game();
 X.Render.init();
 X.UI.menu();
+document.addEventListener("submit", (e) => {
+  if (e.target.id !== "first-player-name") return;
+  e.preventDefault();
+  X.RecordsUI.saveName(e.target.elements.playerName.value);
+  X.UI.menu();
+});
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-act]");
   if (!b) return;
@@ -1456,6 +1469,7 @@ document.getElementById("import").addEventListener("change", async (e) => {
       throw Error("Вернитесь в главное меню перед импортом сохранений");
     if (Object.hasOwn(data, "saveSlots")) X.Slots.importData(data.saveSlots);
     X.profile = profile;
+    X.Save.needsPlayerName = false;
     X.Save.write(profile);
     X.UI.menu();
     X.UI.toast(
@@ -1577,9 +1591,21 @@ X.Render.canvas.addEventListener(
   },
   { passive: false },
 );
-window.addEventListener("blur", () => X.game.pause());
+window.addEventListener("blur", () => {
+  if (!X.Demo.active) X.game.pause();
+});
+let backgroundDemoTimer;
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) X.game.pause();
+  clearInterval(backgroundDemoTimer);
+  if (!document.hidden) return;
+  if (!X.Demo.active) {
+    X.game.pause();
+    return;
+  }
+  // Chromium can suspend rendering while the tab is hidden.
+  backgroundDemoTimer = setInterval(() => {
+    if (X.Demo.active) X.game.advance(performance.now(), 60);
+  }, 100);
 });
 window.addEventListener("pagehide", () => {
   if (X.game.state === "play") X.game.checkpoint();

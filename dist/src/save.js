@@ -3,6 +3,7 @@ X.Save = {
   key: "xenocide.profile.v1",
   available: true,
   warning: "",
+  needsPlayerName: false,
   defaults() {
     return {
       version: 1,
@@ -575,6 +576,7 @@ X.Save = {
   load() {
     try {
       const s = localStorage.getItem(this.key);
+      this.needsPlayerName = s === null;
       return s ? this.validate(JSON.parse(s)) : this.defaults();
     } catch (e) {
       this.warning =
@@ -584,6 +586,7 @@ X.Save = {
         localStorage.removeItem(this.key + ".probe");
       } catch (err) {
         this.available = false;
+        this.needsPlayerName = true;
       }
       return this.defaults();
     }
