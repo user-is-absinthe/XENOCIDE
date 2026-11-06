@@ -770,17 +770,21 @@ X.Game = class {
       else X.UI.hide();
     }
   }
-  frame(t) {
+  advance(t, maxSteps = 6) {
     if (!this.last) this.last = t;
-    let dt = Math.min(0.1, (t - this.last) / 1000);
-    this.last = t;
-    this.fps = this.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
+    const dt = Math.max(0, Math.min(maxSteps / 60, (t - this.last) / 1000));
+    this.last = Math.max(this.last, t);
     this.accumulator += dt;
     let n = 0;
-    while (this.accumulator >= 1 / 60 && n++ < 6) {
+    while (this.accumulator >= 1 / 60 && n++ < maxSteps) {
       this.update(1 / 60);
       this.accumulator -= 1 / 60;
     }
+    return dt;
+  }
+  frame(t) {
+    const dt = this.advance(t);
+    this.fps = this.fps * 0.95 + (1 / Math.max(0.001, dt)) * 0.05;
     X.Render.draw(this, dt);
     if (this.state === "play") X.UI.hud(this);
     requestAnimationFrame((t) => this.frame(t));

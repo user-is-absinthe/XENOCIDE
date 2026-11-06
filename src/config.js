@@ -1,6 +1,6 @@
 "use strict";
 window.X = {};
-X.version = "2.1.0";
+X.version = "2.2.0";
 X.C = {
   tile: 48,
   width: 1152,

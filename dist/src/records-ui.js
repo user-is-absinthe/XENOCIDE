@@ -14,6 +14,12 @@ X.RecordsUI = {
         })[c],
     );
   },
+  saveName(value) {
+    X.profile.records.name = X.Scoring.name(value);
+    X.Save.needsPlayerName = false;
+    X.Save.write(X.profile);
+    return X.profile.records.name;
+  },
   number(n) {
     return n.toLocaleString("ru-RU");
   },
@@ -132,9 +138,7 @@ document.addEventListener("change", (e) => {
   const id = e.target.id;
   if (!id.startsWith("records-")) return;
   if (id === "records-name") {
-    X.profile.records.name = X.Scoring.name(e.target.value);
-    e.target.value = X.profile.records.name;
-    X.Save.write(X.profile);
+    e.target.value = X.RecordsUI.saveName(e.target.value);
     return;
   }
   const key = {

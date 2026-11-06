@@ -86,6 +86,7 @@ X.Slots = {
     X.game.keys.clear();
     X.game.mouse.left = X.game.mouse.right = false;
     X.profile = profile;
+    X.Save.needsPlayerName = false;
     X.Save.write(profile);
     X.Audio.settings();
     if (profile.checkpoint)
@@ -136,6 +137,8 @@ X.Slots = {
           ...Object.values(p.weaponTuning),
         ].reduce((sum, n) => sum + n, 0);
       return (
+        X.RecordsUI.escape(p.records.name) +
+        "<br>" +
         (n > 20 ? "Экспедиция · сектор " : "Кампания · миссия ") +
         n +
         (p.checkpoint ? " · контрольная точка" : " · перед высадкой") +
